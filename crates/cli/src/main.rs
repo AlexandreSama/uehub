@@ -4,8 +4,8 @@ use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use indicatif::{ProgressBar, ProgressStyle};
 use uehub_core::{
-    DownloadSummary, EpicClient, FabAsset, LOGIN_URL, Progress, find_assets, folder_name,
-    pick_version,
+    AssetKind, DownloadSummary, EpicClient, FabAsset, LOGIN_URL, Progress, UnrealProject,
+    find_assets, folder_name, parse_version, pick_for_project, pick_version,
 };
 
 #[derive(Parser)]
@@ -39,6 +39,22 @@ enum Command {
         #[arg(long, default_value_t = 8)]
         jobs: usize,
     },
+    /// Ajoute un asset de ta bibliothèque à un projet Unreal
+    Add {
+        /// Titre, morceau de titre ou asset_id
+        query: String,
+        /// Chemin du fichier .uproject
+        project: PathBuf,
+        /// Version d'Unreal à utiliser (par défaut : celle du projet)
+        #[arg(long)]
+        ue: Option<String>,
+        /// Écrase les fichiers déjà présents dans le projet
+        #[arg(long)]
+        force: bool,
+        /// Nombre de chunks téléchargés en parallèle
+        #[arg(long, default_value_t = 8)]
+        jobs: usize,
+    },
     /// Se déconnecte et supprime la session locale
     Logout,
 }
@@ -59,10 +75,12 @@ async fn main() -> Result<()> {
             client.login_with_code(&code).await?;
             let name = client.display_name().unwrap_or_default();
             println!("Connecté en tant que {name}");
+            println!("Session rangée dans : {}", client.session_storage());
         }
         Command::Whoami => {
             client.resume().await?;
             println!("{}", client.display_name().unwrap_or_default());
+            println!("Session rangée dans : {}", client.session_storage());
         }
         Command::Library => {
             let assets = client.fab_library().await?;
@@ -94,6 +112,60 @@ async fn main() -> Result<()> {
             let bar = progress_bar()?;
             let summary = client
                 .download(asset, version, &out, jobs, &|p| show_progress(&bar, p))
+                .await?;
+            bar.finish_and_clear();
+            print_summary(&summary);
+        }
+        Command::Add {
+            query,
+            project,
+            ue,
+            force,
+            jobs,
+        } => {
+            let project = UnrealProject::open(&project)
+                .with_context(|| format!("impossible d'ouvrir {}", project.display()))?;
+            let engine = match &ue {
+                Some(v) => parse_version(v.trim_start_matches("UE_"))
+                    .context("--ue attend une version comme 5.4")?,
+                None => project
+                    .engine
+                    .context("version d'Unreal du projet introuvable : précise --ue 5.x")?,
+            };
+            println!("Projet {} (UE {}.{})", project.name, engine.0, engine.1);
+
+            let library = client.fab_library().await?;
+            let asset = select_asset(&library, &query)?;
+            let kind = AssetKind::of(asset);
+            let (version, exact) = pick_for_project(asset, engine).with_context(|| {
+                format!(
+                    "« {} » n'existe pas pour UE {}.{} ni pour une version plus ancienne",
+                    asset.title, engine.0, engine.1
+                )
+            })?;
+            if !exact {
+                if kind == AssetKind::Plugin {
+                    bail!(
+                        "ce plugin n'existe pas pour UE {}.{} (versions : {})",
+                        engine.0,
+                        engine.1,
+                        version.engine_versions.join(", ")
+                    );
+                }
+                println!(
+                    "Attention : pas de version {}.{}, j'installe celle pour {} (Unreal la convertira).",
+                    engine.0,
+                    engine.1,
+                    version.engine_versions.last().map_or("?", String::as_str)
+                );
+            }
+            println!("{} ({kind:?})", asset.title);
+
+            let bar = progress_bar()?;
+            let summary = client
+                .add_to_project(asset, version, &project, force, jobs, &|p| {
+                    show_progress(&bar, p)
+                })
                 .await?;
             bar.finish_and_clear();
             print_summary(&summary);

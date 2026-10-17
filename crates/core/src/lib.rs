@@ -3,13 +3,17 @@
 
 mod download;
 mod error;
+mod project;
 mod session;
 
 use std::path::{Path, PathBuf};
 
-pub use download::{DownloadPlan, Progress, find_assets, folder_name, pick_version};
+pub use download::{
+    DownloadPlan, Progress, find_assets, folder_name, pick_for_project, pick_version,
+};
 pub use egs_api::api::types::fab_library::{FabAsset, ProjectVersion};
 pub use error::{CoreError, Result};
+pub use project::{AssetKind, UnrealProject, parse_version};
 
 use directories::ProjectDirs;
 use egs_api::EpicGames;
@@ -68,6 +72,11 @@ impl EpicClient {
             return Err(CoreError::NotLoggedIn);
         }
         self.store.save(&self.egs.user_details())
+    }
+
+    /// Où la session est rangée (trousseau ou fichier).
+    pub fn session_storage(&self) -> &'static str {
+        self.store.backend()
     }
 
     /// Nom affiché du compte connecté.
@@ -141,6 +150,42 @@ impl EpicClient {
         let manifest = self.fab_manifest(asset, version).await?;
         let plan = DownloadPlan::from_manifest(&manifest);
         self.install(&plan, version, out_dir, jobs, on_progress)
+            .await
+    }
+
+    /// Ajoute une version d'un asset dans un projet Unreal, au bon endroit selon son type.
+    /// Sans `overwrite`, refuse d'écraser des fichiers déjà présents.
+    pub async fn add_to_project(
+        &mut self,
+        asset: &FabAsset,
+        version: &ProjectVersion,
+        project: &UnrealProject,
+        overwrite: bool,
+        jobs: usize,
+        on_progress: &(dyn Fn(Progress) + Send + Sync),
+    ) -> Result<DownloadSummary> {
+        let kind = AssetKind::of(asset);
+        if kind == AssetKind::CompleteProject {
+            return Err(CoreError::Project(format!(
+                "« {} » est un projet complet : télécharge-le dans un nouveau dossier",
+                asset.title
+            )));
+        }
+
+        let manifest = self.fab_manifest(asset, version).await?;
+        let plan = DownloadPlan::from_manifest(&manifest);
+        let target = match kind {
+            AssetKind::Plugin => project::plugin_target(&project.dir, &plan)?,
+            _ => project.dir.clone(),
+        };
+
+        if !overwrite {
+            let existing = plan.existing_files(&target);
+            if let Some(first) = existing.first() {
+                return Err(CoreError::Conflict(existing.len(), first.to_string()));
+            }
+        }
+        self.install(&plan, version, &target, jobs, on_progress)
             .await
     }
 

@@ -15,3 +15,5 @@ tokio.workspace = true
 futures.workspace = true
 reqwest.workspace = true
 sha1.workspace = true
+keyring-core.workspace = true
+zbus-secret-service-keyring-store.workspace = true

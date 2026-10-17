@@ -51,6 +51,29 @@ pub fn pick_version<'a>(asset: &'a FabAsset, ue: Option<&str>) -> Option<&'a Pro
     }
 }
 
+/// Version à installer dans un projet en UE `target` : la version exacte si elle existe,
+/// sinon la plus récente parmi les plus anciennes (Unreal sait convertir un contenu ancien).
+/// Le booléen vaut `true` quand la correspondance est exacte.
+pub fn pick_for_project(asset: &FabAsset, target: (u32, u32)) -> Option<(&ProjectVersion, bool)> {
+    let wanted = format!("UE_{}.{}", target.0, target.1);
+    if let Some(v) = asset
+        .project_versions
+        .iter()
+        .find(|p| p.engine_versions.contains(&wanted))
+    {
+        return Some((v, true));
+    }
+    asset
+        .project_versions
+        .iter()
+        .filter(|p| {
+            let newest = newest_engine(p);
+            newest > (0, 0) && newest <= target
+        })
+        .max_by_key(|p| newest_engine(p))
+        .map(|v| (v, false))
+}
+
 /// Nom de dossier tiré du titre : "Megascans: Grass" → "Megascans_Grass".
 pub fn folder_name(title: &str) -> String {
     let cleaned: String = title
@@ -116,6 +139,18 @@ impl DownloadPlan {
 
     pub fn file_count(&self) -> usize {
         self.files.len()
+    }
+
+    /// Chemins relatifs des fichiers, tels que rangés dans le manifest.
+    pub fn file_names(&self) -> impl Iterator<Item = &str> {
+        self.files.iter().map(|f| f.filename.as_str())
+    }
+
+    /// Fichiers du plan qui existent déjà dans `out_dir`.
+    pub fn existing_files(&self, out_dir: &Path) -> Vec<&str> {
+        self.file_names()
+            .filter(|f| out_dir.join(f).exists())
+            .collect()
     }
 
     /// Taille finale de l'asset sur le disque, en octets.

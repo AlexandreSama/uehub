@@ -14,6 +14,12 @@ pub enum CoreError {
     Download(String),
     #[error("fichier corrompu (SHA-1 différent) : {0}")]
     HashMismatch(String),
+    #[error("projet : {0}")]
+    Project(String),
+    #[error("{0} fichier(s) existent déjà dans le projet, dont {1} (autorise l'écrasement)")]
+    Conflict(usize, String),
+    #[error("trousseau : {0}")]
+    Keyring(#[from] keyring_core::Error),
     #[error(transparent)]
     Http(#[from] reqwest::Error),
     #[error(transparent)]
