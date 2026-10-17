@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Ce que la fenêtre principale a le droit d'appeler",
+  "windows": ["main"],
+  "permissions": ["core:default", "dialog:allow-open"]
+}

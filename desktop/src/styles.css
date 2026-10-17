@@ -1,0 +1,513 @@
+/* Couleurs : le graphite de l'éditeur Unreal, et les couleurs des pins de Blueprint
+   pour coder le type d'asset. Le blanc des fils d'exécution sert aux actions principales. */
+:root {
+    --bg: #1c1e24;
+    --panel: #22252c;
+    --raised: #2a2e37;
+    --line: #363b46;
+    --text: #e6e8ed;
+    --muted: #9aa0ac;
+    --exec: #f2f3f5;
+    --select: #3d8bff;
+    --danger: #ef5b5b;
+    --pin-pack: #f0b34a;
+    --pin-plugin: #3ccf9e;
+    --pin-project: #b18cff;
+    --pin-string: #ff4fd8;
+    --node-head: #2c5b9e;
+
+    color-scheme: dark;
+    font-family: "Barlow", system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.45;
+    color: var(--text);
+    background: var(--bg);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: var(--bg);
+}
+
+h1,
+h2,
+h3,
+p,
+ul,
+ol {
+    margin: 0;
+}
+
+code {
+    font-family: ui-monospace, monospace;
+    font-size: 0.92em;
+    color: var(--pin-string);
+}
+
+.muted {
+    color: var(--muted);
+}
+
+:focus-visible {
+    outline: 2px solid var(--select);
+    outline-offset: 2px;
+}
+
+/* ---------- Boutons et champs ---------- */
+
+button {
+    font: inherit;
+    font-weight: 500;
+    color: var(--text);
+    background: var(--raised);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 7px 14px;
+    cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+    border-color: #4a5160;
+}
+
+button:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+button.primary {
+    background: var(--exec);
+    border-color: var(--exec);
+    color: #16181d;
+    font-weight: 600;
+}
+
+button.quiet {
+    background: none;
+    border-color: transparent;
+    color: var(--muted);
+}
+
+button.quiet:hover {
+    color: var(--text);
+}
+
+button.danger {
+    background: none;
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+input {
+    font: inherit;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 7px 10px;
+}
+
+input::placeholder {
+    color: #6c7380;
+}
+
+/* ---------- Pins de Blueprint ---------- */
+
+.pin {
+    display: inline-block;
+    flex: none;
+    width: 10px;
+    height: 10px;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+}
+
+.pin-pack {
+    color: var(--pin-pack);
+}
+
+.pin-plugin {
+    color: var(--pin-plugin);
+}
+
+.pin-project {
+    color: var(--pin-project);
+}
+
+.pin-string {
+    color: var(--pin-string);
+}
+
+/* ---------- Mise en page ---------- */
+
+.splash {
+    height: 100vh;
+}
+
+.app {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    grid-template-rows: auto 1fr 44px;
+    grid-template-areas:
+    "top top"
+    "assets details"
+    "status status";
+    height: 100vh;
+}
+
+.topbar {
+    grid-area: initial;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+}
+
+.wordmark {
+    font-family: "Barlow Semi Condensed", "Barlow", sans-serif;
+    font-weight: 600;
+    font-size: 22px;
+    letter-spacing: 0.01em;
+    margin-right: 8px;
+}
+
+.search {
+    flex: 1;
+    max-width: 420px;
+}
+
+.filters {
+    display: flex;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.filters button {
+    border: none;
+    border-radius: 0;
+    background: none;
+    color: var(--muted);
+    padding: 6px 12px;
+}
+
+.filters button + button {
+    border-left: 1px solid var(--line);
+}
+
+.filters button[aria-pressed="true"] {
+    background: var(--raised);
+    color: var(--text);
+}
+
+.account {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* ---------- Grille des assets ---------- */
+
+.assets {
+    grid-area: assets;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.assets.empty,
+.details.empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    text-align: center;
+    color: var(--muted);
+}
+
+.grid {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 20px 16px;
+}
+
+.card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    height: 100%;
+    padding: 6px;
+    text-align: left;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 8px;
+}
+
+.card:hover:not(:disabled) {
+    border-color: var(--line);
+}
+
+.card[aria-pressed="true"] {
+    border-color: var(--select);
+    background: rgba(61, 139, 255, 0.08);
+}
+
+.thumb {
+    display: block;
+    width: 100%;
+    aspect-ratio: 640 / 349;
+    object-fit: cover;
+    border-radius: 5px;
+    background: var(--raised);
+}
+
+.card-title {
+    font-weight: 500;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.card-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: auto;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.card-meta .range {
+    margin-left: auto;
+}
+
+/* ---------- Panneau de détail ---------- */
+
+.details {
+    grid-area: details;
+    overflow-y: auto;
+    padding: 20px;
+    border-left: 1px solid var(--line);
+    background: var(--panel);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.thumb-large {
+    border-radius: 6px;
+}
+
+.details h2 {
+    font-family: "Barlow Semi Condensed", "Barlow", sans-serif;
+    font-weight: 600;
+    font-size: 24px;
+    line-height: 1.15;
+    margin-top: 4px;
+}
+
+.kind {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.kind .muted {
+    margin-left: 8px;
+}
+
+.details h3 {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+    margin-top: 8px;
+}
+
+.versions {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.versions li {
+    font-size: 12px;
+    padding: 2px 8px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+}
+
+.actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+    cursor: pointer;
+}
+
+.check input {
+    accent-color: var(--exec);
+    margin: 0;
+}
+
+/* ---------- Barre d'état ---------- */
+
+.statusbar {
+    grid-area: status;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 20px;
+    border-top: 1px solid var(--line);
+    background: var(--panel);
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.statusbar > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.statusbar.error {
+    color: var(--danger);
+}
+
+.job-title {
+    font-weight: 500;
+}
+
+.bar {
+    flex: 1;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--raised);
+    overflow: hidden;
+}
+
+.bar > div {
+    height: 100%;
+    background: var(--exec);
+    transition: width 0.2s linear;
+}
+
+/* ---------- Connexion : un nœud de Blueprint sur la grille ---------- */
+
+.login {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background-color: #1f2228;
+    background-image:
+            linear-gradient(#2c3038 1px, transparent 1px),
+            linear-gradient(90deg, #2c3038 1px, transparent 1px),
+            linear-gradient(#25282f 1px, transparent 1px),
+            linear-gradient(90deg, #25282f 1px, transparent 1px);
+    background-size:
+            128px 128px,
+            128px 128px,
+            16px 16px,
+            16px 16px;
+}
+
+.node {
+    width: min(460px, 100%);
+    background: rgba(22, 24, 29, 0.96);
+    border: 1px solid #0d0e11;
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+    overflow: hidden;
+}
+
+.node-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: var(--node-head);
+}
+
+.node-head h1 {
+    font-family: "Barlow Semi Condensed", "Barlow", sans-serif;
+    font-weight: 600;
+    font-size: 18px;
+}
+
+/* Le pin d'exécution : une flèche blanche, comme dans l'éditeur. */
+.exec {
+    width: 12px;
+    height: 14px;
+    background: var(--exec);
+    clip-path: polygon(0 0, 55% 0, 100% 50%, 55% 100%, 0 100%);
+}
+
+.node-body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 18px 20px 20px;
+}
+
+.steps {
+    padding-left: 20px;
+}
+
+.steps li + li {
+    margin-top: 16px;
+}
+
+.steps li::marker {
+    color: var(--muted);
+    font-weight: 600;
+}
+
+.steps label {
+    display: block;
+}
+
+.steps button,
+.steps .pin-input {
+    margin-top: 8px;
+}
+
+.pin-input {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.pin-input input {
+    flex: 1;
+}
+
+.error {
+    color: var(--danger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        transition: none !important;
+    }
+}

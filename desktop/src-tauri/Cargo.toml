@@ -1,0 +1,23 @@
+[package]
+name = "uehub-desktop"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lib]
+# Le suffixe `_lib` évite un conflit de nom entre la bibliothèque et le binaire.
+name = "uehub_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build.workspace = true
+
+[dependencies]
+uehub-core.workspace = true
+tauri.workspace = true
+tauri-plugin-opener.workspace = true
+tauri-plugin-dialog.workspace = true
+serde.workspace = true
+tokio.workspace = true
+thiserror.workspace = true
