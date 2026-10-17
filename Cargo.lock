@@ -5099,6 +5099,8 @@ dependencies = [
 name = "uehub-desktop"
 version = "0.1.0"
 dependencies = [
+ "futures",
+ "percent-encoding",
  "serde",
  "tauri",
  "tauri-build",

@@ -356,6 +356,48 @@ input::placeholder {
     margin-top: 12px;
 }
 
+.recent {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.recent li {
+    display: flex;
+    gap: 4px;
+}
+
+/* Un projet récent : le pin d'exécution blanc dit « lancer sur ce projet ». */
+.project {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-align: left;
+}
+
+.project .exec {
+    flex: none;
+    width: 9px;
+    height: 11px;
+}
+
+.project-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.forget {
+    padding: 4px 10px;
+    font-size: 18px;
+    line-height: 1;
+}
+
 .check {
     display: flex;
     align-items: center;
@@ -395,6 +437,11 @@ input::placeholder {
 
 .job-title {
     font-weight: 500;
+}
+
+.statusbar button {
+    padding: 3px 12px;
+    font-size: 13px;
 }
 
 .bar {

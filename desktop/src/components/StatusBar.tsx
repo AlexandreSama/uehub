@@ -3,6 +3,8 @@ import type { Progress } from "../api";
 export interface Job {
     title: string;
     progress: Progress | null;
+    // L'annulation est demandée, on attend que Rust s'arrête.
+    cancelling: boolean;
 }
 
 export interface Status {
@@ -15,13 +17,13 @@ const PHASE: Record<Progress["phase"], string> = {
     files: "Fichiers écrits",
 };
 
-export default function StatusBar({
-                                      job,
-                                      status,
-                                  }: {
+interface Props {
     job: Job | null;
     status: Status | null;
-}) {
+    onCancel: () => void;
+}
+
+export default function StatusBar({ job, status, onCancel }: Props) {
     if (!job)
         return (
             <footer className={`statusbar ${status?.tone ?? ""}`}>
@@ -46,6 +48,9 @@ export default function StatusBar({
             >
                 <div style={{ width: `${ratio * 100}%` }} />
             </div>
+            <button className="danger" disabled={job.cancelling} onClick={onCancel}>
+                {job.cancelling ? "Annulation…" : "Annuler"}
+            </button>
         </footer>
     );
 }

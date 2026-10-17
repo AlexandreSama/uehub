@@ -1,5 +1,5 @@
 // Les appels vers Rust, typés. Chaque fonction correspond à une commande de commands.rs.
-import { Channel, invoke } from "@tauri-apps/api/core";
+import { Channel, convertFileSrc, invoke } from "@tauri-apps/api/core";
 
 export type AssetKind = "pack" | "plugin" | "project";
 
@@ -28,6 +28,12 @@ export interface Progress {
     phase: "chunks" | "files";
     done: number;
     total: number;
+}
+
+export interface RecentProject {
+    path: string;
+    name: string;
+    engine: string | null;
 }
 
 type OnProgress = (p: Progress) => void;
@@ -63,11 +69,15 @@ export const api = {
             overwrite,
             onProgress: progressChannel(onProgress),
         }),
+    cancelJob: () => invoke<void>("cancel_job"),
+    recentProjects: () => invoke<RecentProject[]>("recent_projects"),
+    forgetProject: (uproject: string) =>
+        invoke<void>("forget_project", { uproject }),
 };
 
-// Adresse d'une vignette. Pour l'instant, directement chez Fab.
+// Les vignettes passent par le protocole thumb:// : Rust les garde en cache sur le disque.
 export function thumbnailSrc(url: string): string {
-    return url;
+    return convertFileSrc(url, "thumb");
 }
 
 export const KIND_LABEL: Record<AssetKind, string> = {

@@ -1,17 +1,21 @@
-import { KIND_LABEL, type Asset } from "../api";
+import { KIND_LABEL, type Asset, type RecentProject } from "../api";
 import { KindPin, Thumb } from "./Common";
 
 interface Props {
     asset: Asset | null;
+    recent: RecentProject[];
     busy: boolean;
     overwrite: boolean;
     onOverwrite: (value: boolean) => void;
-    onAdd: () => void;
+    // `null` : ouvrir la boîte de dialogue pour choisir le projet
+    onAdd: (uproject: string | null) => void;
+    onForget: (uproject: string) => void;
     onDownload: () => void;
 }
 
 export default function Details(props: Props) {
-    const { asset, busy, overwrite, onOverwrite, onAdd, onDownload } = props;
+    const { asset, recent, busy, overwrite, onOverwrite } = props;
+    const { onAdd, onForget, onDownload } = props;
 
     if (!asset)
         return (
@@ -20,8 +24,6 @@ export default function Details(props: Props) {
                 projet.
             </aside>
         );
-
-    const canAdd = asset.kind !== "project";
 
     return (
         <aside className="details">
@@ -40,21 +42,49 @@ export default function Details(props: Props) {
                 ))}
             </ul>
 
-            <div className="actions">
-                {canAdd ? (
-                    <button className="primary" disabled={busy} onClick={onAdd}>
-                        Ajouter à un projet…
+            {asset.kind === "project" ? (
+                <p className="muted actions">
+                    C'est un projet complet : télécharge-le dans un dossier, puis ouvre-le
+                    dans Unreal.
+                </p>
+            ) : (
+                <section className="actions">
+                    <h3>Ajouter à un projet</h3>
+                    {recent.length > 0 && (
+                        <ul className="recent">
+                            {recent.map((p) => (
+                                <li key={p.path}>
+                                    <button
+                                        className="project"
+                                        title={p.path}
+                                        disabled={busy}
+                                        onClick={() => onAdd(p.path)}
+                                    >
+                                        <span className="exec" aria-hidden="true" />
+                                        <span className="project-name">{p.name}</span>
+                                        {p.engine && <span className="muted">UE {p.engine}</span>}
+                                    </button>
+                                    <button
+                                        className="quiet forget"
+                                        title="Retirer de la liste"
+                                        aria-label={`Retirer ${p.name} de la liste`}
+                                        onClick={() => onForget(p.path)}
+                                    >
+                                        ×
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                    <button
+                        className={recent.length > 0 ? "" : "primary"}
+                        disabled={busy}
+                        onClick={() => onAdd(null)}
+                    >
+                        {recent.length > 0
+                            ? "Choisir un autre projet…"
+                            : "Choisir un projet…"}
                     </button>
-                ) : (
-                    <p className="muted">
-                        C'est un projet complet : télécharge-le dans un dossier, puis
-                        ouvre-le dans Unreal.
-                    </p>
-                )}
-                <button disabled={busy} onClick={onDownload}>
-                    Télécharger dans un dossier…
-                </button>
-                {canAdd && (
                     <label className="check">
                         <input
                             type="checkbox"
@@ -63,8 +93,12 @@ export default function Details(props: Props) {
                         />
                         Écraser les fichiers déjà présents
                     </label>
-                )}
-            </div>
+                </section>
+            )}
+
+            <button disabled={busy} onClick={onDownload}>
+                Télécharger dans un dossier…
+            </button>
         </aside>
     );
 }

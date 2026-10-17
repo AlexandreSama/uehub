@@ -21,3 +21,5 @@ tauri-plugin-dialog.workspace = true
 serde.workspace = true
 tokio.workspace = true
 thiserror.workspace = true
+futures.workspace = true
+percent-encoding.workspace = true

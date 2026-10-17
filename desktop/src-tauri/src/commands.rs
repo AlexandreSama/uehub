@@ -1,9 +1,11 @@
 //! Les commandes que l'interface React appelle avec `invoke`.
 //! Elles traduisent les types du core en JSON simple pour TypeScript.
 
+use std::future::Future;
 use std::path::PathBuf;
 use std::sync::Mutex as StdMutex;
 
+use futures::future::{AbortHandle, Abortable, Aborted};
 use serde::{Serialize, Serializer};
 use tauri::ipc::Channel;
 use tauri::{AppHandle, State};
@@ -11,7 +13,7 @@ use tauri_plugin_opener::OpenerExt;
 use tokio::sync::Mutex;
 use uehub_core::{
     AssetKind, CoreError, DownloadSummary, EpicClient, FabAsset, LOGIN_URL, Progress,
-    UnrealProject, folder_name, parse_version, pick_for_project, pick_version,
+    RecentProjects, UnrealProject, folder_name, parse_version, pick_for_project, pick_version,
 };
 
 /// Nombre de chunks téléchargés en parallèle.
@@ -23,6 +25,8 @@ pub struct AppState {
     client: Mutex<EpicClient>,
     /// La dernière bibliothèque chargée, pour retrouver un asset par son id.
     library: StdMutex<Vec<FabAsset>>,
+    /// De quoi arrêter le téléchargement en cours, s'il y en a un.
+    job: StdMutex<Option<AbortHandle>>,
 }
 
 impl AppState {
@@ -30,6 +34,7 @@ impl AppState {
         Self {
             client: Mutex::new(client),
             library: StdMutex::new(Vec::new()),
+            job: StdMutex::new(None),
         }
     }
 
@@ -93,6 +98,15 @@ pub struct Summary {
     dir: String,
     /// Remarque à afficher, par exemple quand la version exacte n'existait pas
     note: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct RecentProject {
+    /// Chemin du fichier .uproject
+    path: String,
+    name: String,
+    /// "5.4", ou absent si la version du projet n'a pas pu être lue
+    engine: Option<String>,
 }
 
 /// Une étape de progression, envoyée sur un `Channel` : {"phase":"chunks","done":3,"total":40}
@@ -162,6 +176,29 @@ fn summary(done: DownloadSummary, note: Option<String>) -> Summary {
     }
 }
 
+/// Exécute `work` en le rendant annulable par `cancel_job`.
+/// Annuler abandonne le futur : les chunks déjà reçus restent dans le cache.
+async fn cancellable<T>(state: &AppState, work: impl Future<Output = Result<T>>) -> Result<T> {
+    let (handle, registration) = AbortHandle::new_pair();
+    {
+        let mut job = state.job.lock().unwrap();
+        if job.is_some() {
+            return Err(Error::Msg("un téléchargement est déjà en cours".into()));
+        }
+        *job = Some(handle);
+    }
+
+    let result = Abortable::new(work, registration).await;
+    *state.job.lock().unwrap() = None;
+
+    match result {
+        Ok(result) => result,
+        Err(Aborted) => Err(Error::Msg(
+            "Téléchargement annulé. Relance-le pour reprendre où il s'est arrêté.".into(),
+        )),
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Session
 // ---------------------------------------------------------------------------
@@ -228,9 +265,12 @@ pub async fn download(
         let _ = on_progress.send(p.into());
     };
 
-    let mut client = state.client.lock().await;
-    let done = client.download(&asset, &version, &out, JOBS, &send).await?;
-    Ok(summary(done, None))
+    cancellable(&state, async {
+        let mut client = state.client.lock().await;
+        let done = client.download(&asset, &version, &out, JOBS, &send).await?;
+        Ok(summary(done, None))
+    })
+        .await
 }
 
 /// Ajoute l'asset au projet, avec la version qui correspond à son moteur.
@@ -244,6 +284,13 @@ pub async fn add_to_project(
 ) -> Result<Summary> {
     let asset = state.asset(&asset_id)?;
     let project = UnrealProject::open(&uproject)?;
+
+    // Le projet passe en tête des récents dès qu'il est valide :
+    // après une annulation, on le retrouve pour relancer.
+    if let Ok(mut recent) = RecentProjects::load() {
+        let _ = recent.remember(&project.uproject);
+    }
+
     let (major, minor) = project.engine.ok_or_else(|| {
         Error::Msg(format!(
             "version d'Unreal du projet {} introuvable",
@@ -273,9 +320,47 @@ pub async fn add_to_project(
         let _ = on_progress.send(p.into());
     };
 
-    let mut client = state.client.lock().await;
-    let done = client
-        .add_to_project(&asset, &version, &project, overwrite, JOBS, &send)
-        .await?;
-    Ok(summary(done, note))
+    cancellable(&state, async {
+        let mut client = state.client.lock().await;
+        let done = client
+            .add_to_project(&asset, &version, &project, overwrite, JOBS, &send)
+            .await?;
+        Ok(summary(done, note))
+    })
+        .await
+}
+
+/// Arrête le téléchargement en cours. Sans effet s'il n'y en a pas.
+#[tauri::command]
+pub fn cancel_job(state: State<'_, AppState>) {
+    if let Some(job) = state.job.lock().unwrap().as_ref() {
+        job.abort();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Projets récents
+// ---------------------------------------------------------------------------
+
+/// Les projets récents encore lisibles, le plus récent en premier.
+#[tauri::command]
+pub fn recent_projects() -> Result<Vec<RecentProject>> {
+    let recent = RecentProjects::load()?;
+    let projects = recent
+        .paths()
+        .iter()
+        .filter_map(|path| UnrealProject::open(path).ok())
+        .map(|p| RecentProject {
+            path: p.uproject.display().to_string(),
+            name: p.name,
+            engine: p.engine.map(|(major, minor)| format!("{major}.{minor}")),
+        })
+        .collect();
+    Ok(projects)
+}
+
+#[tauri::command]
+pub fn forget_project(uproject: PathBuf) -> Result<()> {
+    RecentProjects::load()?.forget(&uproject)?;
+    Ok(())
 }

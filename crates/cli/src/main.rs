@@ -4,8 +4,8 @@ use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use indicatif::{ProgressBar, ProgressStyle};
 use uehub_core::{
-    AssetKind, DownloadSummary, EpicClient, FabAsset, LOGIN_URL, Progress, UnrealProject,
-    find_assets, folder_name, parse_version, pick_for_project, pick_version,
+    AssetKind, DownloadSummary, EpicClient, FabAsset, LOGIN_URL, Progress, RecentProjects,
+    UnrealProject, find_assets, folder_name, parse_version, pick_for_project, pick_version,
 };
 
 #[derive(Parser)]
@@ -169,6 +169,11 @@ async fn main() -> Result<()> {
                 .await?;
             bar.finish_and_clear();
             print_summary(&summary);
+
+            // Pour que ce projet apparaisse aussi dans l'app.
+            if let Ok(mut recent) = RecentProjects::load() {
+                let _ = recent.remember(&project.uproject);
+            }
         }
         Command::Logout => {
             client.logout().await?;

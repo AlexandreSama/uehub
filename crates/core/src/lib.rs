@@ -5,6 +5,8 @@ mod download;
 mod error;
 mod project;
 mod session;
+mod thumbs;
+mod recent;
 
 use std::path::{Path, PathBuf};
 
@@ -14,6 +16,8 @@ pub use download::{
 pub use egs_api::api::types::fab_library::{FabAsset, ProjectVersion};
 pub use error::{CoreError, Result};
 pub use project::{AssetKind, UnrealProject, parse_version};
+pub use thumbs::ThumbCache;
+pub use recent::RecentProjects;
 
 use directories::ProjectDirs;
 use egs_api::EpicGames;
