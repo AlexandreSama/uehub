@@ -11,3 +11,7 @@ serde_json.workspace = true
 thiserror.workspace = true
 directories.workspace = true
 log.workspace = true
+tokio.workspace = true
+futures.workspace = true
+reqwest.workspace = true
+sha1.workspace = true

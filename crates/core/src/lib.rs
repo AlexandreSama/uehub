@@ -1,23 +1,38 @@
 //! Cœur de l'application : tout ce qui parle à Epic et touche au disque.
 //! Aucune dépendance d'interface ici : la CLI et l'app Tauri partagent ce code.
 
+mod download;
 mod error;
 mod session;
 
-pub use egs_api::api::types::fab_library::FabAsset;
+use std::path::{Path, PathBuf};
+
+pub use download::{DownloadPlan, Progress, find_assets, folder_name, pick_version};
+pub use egs_api::api::types::fab_library::{FabAsset, ProjectVersion};
 pub use error::{CoreError, Result};
 
+use directories::ProjectDirs;
 use egs_api::EpicGames;
+use egs_api::api::types::download_manifest::DownloadManifest;
 use session::SessionStore;
 
 /// Page de connexion Epic. Après connexion, elle affiche un JSON
 /// dont il faut copier la valeur `authorizationCode`.
 pub const LOGIN_URL: &str = "https://www.epicgames.com/id/login?redirectUrl=https%3A%2F%2Fwww.epicgames.com%2Fid%2Fapi%2Fredirect%3FclientId%3D34a02cf8f4414e29b15921876da36f9a%26responseType%3Dcode";
 
+/// Bilan d'un téléchargement terminé.
+pub struct DownloadSummary {
+    pub files: usize,
+    pub bytes: u64,
+    /// Dossier où les fichiers ont été écrits
+    pub dir: PathBuf,
+}
+
 /// Point d'entrée unique vers les services Epic.
 pub struct EpicClient {
     egs: EpicGames,
     store: SessionStore,
+    http: reqwest::Client,
 }
 
 impl EpicClient {
@@ -28,7 +43,11 @@ impl EpicClient {
         if let Some(saved) = store.load()? {
             egs.set_user_details(saved);
         }
-        Ok(Self { egs, store })
+        Ok(Self {
+            egs,
+            store,
+            http: reqwest::Client::new(),
+        })
     }
 
     /// Première connexion avec le code copié depuis `LOGIN_URL`.
@@ -72,9 +91,90 @@ impl EpicClient {
         Ok(library.results)
     }
 
+    /// Récupère le manifest de téléchargement d'une version d'un asset.
+    pub async fn fab_manifest(
+        &mut self,
+        asset: &FabAsset,
+        version: &ProjectVersion,
+    ) -> Result<DownloadManifest> {
+        self.resume().await?;
+        let platform = version
+            .build_versions
+            .first()
+            .map(|b| b.platform.as_str())
+            .unwrap_or("Windows");
+
+        let infos = self
+            .egs
+            .fab_asset_manifest(
+                &version.artifact_id,
+                &asset.asset_namespace,
+                &asset.asset_id,
+                Some(platform),
+            )
+            .await
+            .map_err(|e| CoreError::Api(format!("manifest d'asset : {e:?}")))?;
+        let info = infos
+            .into_iter()
+            .next()
+            .ok_or_else(|| CoreError::Api("aucune info de téléchargement".into()))?;
+
+        // Plusieurs CDN possibles : on prend le premier qui répond.
+        for base_url in &info.distribution_point_base_urls {
+            match self.egs.fab_download_manifest(info.clone(), base_url).await {
+                Ok(manifest) => return Ok(manifest),
+                Err(e) => log::warn!("CDN {base_url} : {e:?}"),
+            }
+        }
+        Err(CoreError::Api("aucun CDN n'a fourni le manifest".into()))
+    }
+
+    /// Télécharge une version d'un asset dans `out_dir`.
+    pub async fn download(
+        &mut self,
+        asset: &FabAsset,
+        version: &ProjectVersion,
+        out_dir: &Path,
+        jobs: usize,
+        on_progress: &(dyn Fn(Progress) + Send + Sync),
+    ) -> Result<DownloadSummary> {
+        let manifest = self.fab_manifest(asset, version).await?;
+        let plan = DownloadPlan::from_manifest(&manifest);
+        self.install(&plan, version, out_dir, jobs, on_progress)
+            .await
+    }
+
+    /// Télécharge les chunks puis écrit les fichiers dans `out_dir`.
+    async fn install(
+        &self,
+        plan: &DownloadPlan,
+        version: &ProjectVersion,
+        out_dir: &Path,
+        jobs: usize,
+        on_progress: &(dyn Fn(Progress) + Send + Sync),
+    ) -> Result<DownloadSummary> {
+        let cache = cache_dir()?.join(&version.artifact_id);
+        plan.download_chunks(&self.http, &cache, jobs, on_progress)
+            .await?;
+        plan.assemble_files(&cache, out_dir, on_progress).await?;
+        tokio::fs::remove_dir_all(&cache).await?;
+
+        Ok(DownloadSummary {
+            files: plan.file_count(),
+            bytes: plan.install_size(),
+            dir: out_dir.to_path_buf(),
+        })
+    }
+
     /// Déconnexion côté Epic + suppression de la session locale.
     pub async fn logout(&mut self) -> Result<()> {
         let _ = self.egs.logout().await;
         self.store.clear()
     }
+}
+
+/// ~/.cache/uehub/chunks : les chunks en cours, gardés tant que l'asset n'est pas complet.
+fn cache_dir() -> Result<PathBuf> {
+    let dirs = ProjectDirs::from("", "", "uehub").ok_or(CoreError::NoDataDir)?;
+    Ok(dirs.cache_dir().join("chunks"))
 }

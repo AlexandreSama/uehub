@@ -10,6 +10,12 @@ pub enum CoreError {
     Api(String),
     #[error("impossible de trouver le dossier de données utilisateur")]
     NoDataDir,
+    #[error("téléchargement : {0}")]
+    Download(String),
+    #[error("fichier corrompu (SHA-1 différent) : {0}")]
+    HashMismatch(String),
+    #[error(transparent)]
+    Http(#[from] reqwest::Error),
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error(transparent)]
