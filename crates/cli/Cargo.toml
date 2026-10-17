@@ -1,0 +1,17 @@
+[package]
+name = "uehub-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "uehub"
+path = "src/main.rs"
+
+[dependencies]
+uehub-core.workspace = true
+tokio.workspace = true
+clap.workspace = true
+anyhow.workspace = true
+env_logger.workspace = true
