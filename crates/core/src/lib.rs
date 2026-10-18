@@ -2,6 +2,7 @@
 //! Aucune dépendance d'interface ici : la CLI et l'app Tauri partagent ce code.
 
 mod download;
+mod engines;
 mod error;
 mod project;
 mod session;
@@ -18,6 +19,10 @@ pub use error::{CoreError, Result};
 pub use project::{AssetKind, UnrealProject, parse_version};
 pub use thumbs::ThumbCache;
 pub use recent::RecentProjects;
+pub use engines::{
+    Downloaded, EULA_URL, EngineDownload, EngineInstall, InstallProgress, InstalledEngine,
+    UnrealSession, engines_dir, installed_engines,
+};
 
 use directories::ProjectDirs;
 use egs_api::EpicGames;

@@ -1,3 +1,5 @@
+mod engines;
+
 use std::path::PathBuf;
 
 use anyhow::{Context, Result, bail};
@@ -55,8 +57,25 @@ enum Command {
         #[arg(long, default_value_t = 8)]
         jobs: usize,
     },
+    /// Les moteurs Unreal précompilés pour Linux : installés et proposés par Epic
+    Engines {
+        #[command(subcommand)]
+        action: Option<EngineAction>,
+    },
     /// Se déconnecte et supprime la session locale
     Logout,
+}
+
+#[derive(Subcommand)]
+enum EngineAction {
+    /// Télécharge, extrait et enregistre un moteur
+    Install {
+        /// Version à installer, ex. 5.8.3
+        version: String,
+        /// Dossier du moteur (par défaut : ~/UnrealEngine/<version>)
+        #[arg(long)]
+        dir: Option<PathBuf>,
+    },
 }
 
 #[tokio::main]
@@ -175,6 +194,10 @@ async fn main() -> Result<()> {
                 let _ = recent.remember(&project.uproject);
             }
         }
+        Command::Engines { action: None } => engines::list(&mut client).await?,
+        Command::Engines {
+            action: Some(EngineAction::Install { version, dir }),
+        } => engines::install(&mut client, &version, dir).await?,
         Command::Logout => {
             client.logout().await?;
             println!("Déconnecté.");
