@@ -1,15 +1,17 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-// Polices embarquées dans l'app : rien n'est chargé depuis Internet.
-import "@fontsource/barlow/400.css";
-import "@fontsource/barlow/500.css";
-import "@fontsource/barlow/600.css";
-import "@fontsource/barlow-semi-condensed/600.css";
+// Police embarquée dans l'app : rien n'est chargé depuis Internet. Archivo est variable
+// en graisse et en largeur : les titres et les petits libellés utilisent sa forme étroite.
+import "@fontsource-variable/archivo/wdth.css";
 import "./styles.css";
+import { loadHome } from "./api";
 import App from "./App";
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-    <React.StrictMode>
-        <App />
-    </React.StrictMode>,
+// Le dossier personnel d'abord : les chemins s'affichent ensuite avec « ~ ».
+void loadHome().then(() =>
+    ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+        <React.StrictMode>
+            <App />
+        </React.StrictMode>,
+    ),
 );

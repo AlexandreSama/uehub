@@ -1,52 +1,23 @@
-// L'écran Moteurs : les moteurs déjà enregistrés (à lancer ou désinstaller), les projets
-// récents à ouvrir avec le bon moteur, et les versions précompilées qu'Epic propose
-// pour Linux. « Installer » met une installation dans la file.
+// L'écran Moteurs : les projets récents à gauche ; au centre, les moteurs sur ce
+// disque et la grille des versions d'Epic ; à droite, la version choisie.
 import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
     api,
     formatBytes,
+    installing,
+    jobFor,
     progressText,
+    tilde,
     type AvailableEngine,
     type EngineCatalog,
     type LocalEngine,
     type QueueJob,
     type RecentProject,
 } from "../api";
-import { ProgressBar } from "./Common";
-
-const day = new Intl.DateTimeFormat("fr-FR", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-});
-
-// "2026-09-22" → "22 sept. 2026"
-function formatDay(date: string | null): string {
-    return date ? day.format(new Date(date)) : "";
-}
-
-// La plus récente de chaque branche (5.8, 5.7…). La liste arrive déjà triée.
-function latestPerBranch(engines: AvailableEngine[]): AvailableEngine[] {
-    const seen = new Set<string>();
-    return engines.filter((e) => {
-        const branch = e.version.split(".").slice(0, 2).join(".");
-        if (seen.has(branch)) return false;
-        seen.add(branch);
-        return true;
-    });
-}
-
-// Le job de la file qui installe cette version, s'il n'est pas terminé.
-function jobFor(jobs: QueueJob[], version: string): QueueJob | undefined {
-    return jobs.find(
-        (j) =>
-            j.request.kind === "installEngine" &&
-            j.request.version === version &&
-            j.status.state !== "done",
-    );
-}
+import type { Rate } from "../rates";
+import EngineInspector from "./EngineInspector";
+import EngineMatrix, { MatrixLegend } from "./EngineMatrix";
 
 // Le résultat de la dernière action (lancer, ouvrir, désinstaller), sous les moteurs.
 interface Status {
@@ -54,7 +25,12 @@ interface Status {
     error: boolean;
 }
 
-export default function Engines({ jobs }: { jobs: QueueJob[] }) {
+interface Props {
+    jobs: QueueJob[];
+    rates: Record<number, Rate>;
+}
+
+export default function Engines({ jobs, rates }: Props) {
     const [local, setLocal] = useState<LocalEngine[]>([]);
     const [recent, setRecent] = useState<RecentProject[]>([]);
     const [status, setStatus] = useState<Status | null>(null);
@@ -64,7 +40,9 @@ export default function Engines({ jobs }: { jobs: QueueJob[] }) {
     const [catalog, setCatalog] = useState<EngineCatalog | null>(null);
     const [catalogError, setCatalogError] = useState<string | null>(null);
     const [folder, setFolder] = useState("");
-    const [showAll, setShowAll] = useState(false);
+    const [free, setFree] = useState<number | null>(null);
+    // La version choisie dans la grille ; sans choix, celle qui s'installe ou la plus récente
+    const [selected, setSelected] = useState<string | null>(null);
     // Refus de la file (déjà installé, dossier occupé…)
     const [notice, setNotice] = useState<string | null>(null);
 
@@ -105,6 +83,12 @@ export default function Engines({ jobs }: { jobs: QueueJob[] }) {
     useEffect(() => {
         void loadInstalled();
     }, [finished]);
+
+    // La place libre change avec le dossier, et après chaque installation ou désinstallation.
+    useEffect(() => {
+        if (!folder) return;
+        api.freeSpace(folder).then(setFree, () => setFree(null));
+    }, [folder, finished, local.length]);
 
     // Le dossier choisi est retenu dans les réglages pour les prochains lancements.
     async function chooseFolder() {
@@ -151,6 +135,7 @@ export default function Engines({ jobs }: { jobs: QueueJob[] }) {
     }
 
     async function install(version: string) {
+        setSelected(version);
         try {
             await api.enqueue({ kind: "installEngine", version, folder });
             setNotice(null);
@@ -160,215 +145,203 @@ export default function Engines({ jobs }: { jobs: QueueJob[] }) {
     }
 
     const all = catalog?.engines ?? [];
-    const shown = showAll ? all : latestPerBranch(all);
+    const current =
+        selected ??
+        jobs.map(installing).find((v) => v !== null) ??
+        all[0]?.version ??
+        null;
+    const job = current ? jobFor(jobs, current) : undefined;
 
     return (
         <section className="engines">
-            <div className="engines-page">
-                <header className="engines-head">
-                    <h2>Moteurs Unreal</h2>
-                    <p className="muted">
-                        Les versions précompilées pour Linux, publiées par Epic. Chacune
-                        s'installe dans son dossier et s'enregistre pour que tes projets la
-                        retrouvent.
-                    </p>
-                </header>
-
-                <h3>Installés</h3>
-                {local.length === 0 ? (
-                    <p className="muted">Aucun moteur enregistré sur cet ordinateur.</p>
-                ) : (
-                    <ul className="engine-list">
-                        {local.map((e) => (
-                            <li key={e.dir} className="engine-row local">
-                                <span className="engine-version">UE {e.version ?? "?"}</span>
-                                <span className="muted engine-dir" title={e.dir}>
-                  {e.dir}
-                </span>
-                                <span className="engine-action">
-                  {removing === e.dir ? (
-                      <span className="muted">Suppression…</span>
-                  ) : confirming === e.dir ? (
-                      <>
-                          <span>Supprimer ce dossier ?</span>
-                          <button
-                              className="danger"
-                              onClick={() => void uninstall(e)}
-                          >
-                              Supprimer
-                          </button>
-                          <button
-                              className="quiet"
-                              onClick={() => setConfirming(null)}
-                          >
-                              Annuler
-                          </button>
-                      </>
-                  ) : (
-                      <>
-                          <button onClick={() => launch(e)}>Lancer</button>
-                          {e.byUehub && (
-                              <button
-                                  className="quiet"
-                                  onClick={() => setConfirming(e.dir)}
-                              >
-                                  Désinstaller
-                              </button>
-                          )}
-                      </>
-                  )}
-                </span>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-                {status && (
-                    <p className={status.error ? "error" : "muted"} role="status">
-                        {status.text}
-                    </p>
-                )}
-
-                {recent.length > 0 && (
-                    <>
-                        <h3>Projets récents</h3>
-                        <ul className="engine-list">
-                            {recent.map((p) => (
-                                <li key={p.path} className="engine-row project">
-                  <span className="engine-project" title={p.path}>
-                    {p.name}
-                  </span>
-                                    <span className="muted">
-                    {p.engine ? `UE ${p.engine}` : "Version inconnue"}
-                  </span>
-                                    <span className="engine-action">
-                    <ProjectAction
-                        project={p}
-                        available={all}
-                        jobs={jobs}
-                        onOpen={() => openProject(p)}
-                        onInstall={(version) => void install(version)}
-                    />
-                  </span>
-                                </li>
-                            ))}
-                        </ul>
-                    </>
-                )}
-
-                <div className="engines-available">
-                    <h3>Proposés par Epic</h3>
-                    {catalog && catalog.eulaAccepted && (
-                        <button className="quiet" onClick={() => void loadCatalog()}>
-                            Recharger
-                        </button>
+            <header className="screen-head">
+                <h1>Moteurs</h1>
+                <span className="muted">Versions précompilées pour Linux</span>
+                <div className="folder">
+                    <span className="muted">Dossier</span>
+                    <span className="folder-path" title={folder}>
+            {tilde(folder)}
+          </span>
+                    {free !== null && (
+                        <span className="muted">{formatBytes(free)} libres</span>
                     )}
+                    <button onClick={() => void chooseFolder()}>Changer…</button>
                 </div>
+            </header>
 
-                {catalogError ? (
-                    <div className="engines-message">
-                        <p className="error">
-                            Impossible de lire la liste d'Epic : {catalogError}
-                        </p>
-                        <button onClick={() => void loadCatalog()}>Réessayer</button>
-                    </div>
-                ) : !catalog ? (
-                    <p className="muted">Connexion à unrealengine.com…</p>
-                ) : !catalog.eulaAccepted ? (
-                    <div className="engines-message">
-                        <p>
-                            Epic demande d'accepter le contrat de licence d'Unreal Engine
-                            (CLUF) avant de proposer le moteur. Accepte-le dans ton
-                            navigateur, puis recharge la liste.
-                        </p>
-                        <div className="engines-buttons">
-                            <button
-                                className="primary"
-                                onClick={() => void api.openEulaPage()}
-                            >
-                                Lire et accepter le CLUF
-                            </button>
-                            <button onClick={() => void loadCatalog()}>
-                                J'ai accepté, recharger
-                            </button>
-                        </div>
-                    </div>
-                ) : (
-                    <>
-                        <p className="engines-folder">
-                            <span className="muted">Dossier :</span>
-                            <span className="engine-dir" title={folder}>
-                {folder}
-              </span>
-                            <button className="quiet" onClick={() => void chooseFolder()}>
-                                Changer…
-                            </button>
-                        </p>
-                        <p className="muted engines-space">
-                            Prévois environ 2,8 fois la taille du zip en espace libre : le
-                            zip, puis le moteur extrait. Le zip est supprimé à la fin.
-                        </p>
-                        {notice && (
-                            <p className="error" role="alert">
-                                {notice}
-                            </p>
-                        )}
-                        <ul className="engine-list">
-                            {shown.map((e) => {
-                                const job = jobFor(jobs, e.version);
-                                const installed = local.some((l) => l.version === e.version);
-                                return (
-                                    <li key={e.version} className="engine-row">
-                                        <span className="engine-version">UE {e.version}</span>
-                                        <span className="muted">{formatDay(e.date)}</span>
-                                        <span className="engine-size">{formatBytes(e.size)}</span>
-                                        <span className="engine-action">
-                      {job ? (
-                          <JobState job={job} />
-                      ) : installed ? (
-                          <span className="muted">Installé</span>
-                      ) : (
-                          <button onClick={() => void install(e.version)}>
-                              Installer
-                          </button>
-                      )}
-                    </span>
-                                    </li>
-                                );
-                            })}
-                        </ul>
-                        {all.length > shown.length || showAll ? (
-                            <button className="quiet" onClick={() => setShowAll(!showAll)}>
-                                {showAll
-                                    ? "Seulement la dernière de chaque branche"
-                                    : `Toutes les versions (${all.length})`}
-                            </button>
-                        ) : null}
-                    </>
+            <aside className="engine-projects" aria-label="Projets récents">
+                <h2>Projets récents</h2>
+                {recent.length === 0 && (
+                    <p className="muted">
+                        Les projets auxquels tu ajoutes des assets apparaîtront ici.
+                    </p>
                 )}
-            </div>
-        </section>
-    );
-}
+                {recent.map((p) => (
+                    <div key={p.path} className="project-card">
+                        <div className="split">
+              <span className="project-name" title={p.path}>
+                {p.name}
+              </span>
+                            <span className="muted">
+                {p.engine ? `UE ${p.engine}` : "Version inconnue"}
+              </span>
+                        </div>
+                        <ProjectAction
+                            project={p}
+                            available={all}
+                            jobs={jobs}
+                            onOpen={() => openProject(p)}
+                            onInstall={(version) => void install(version)}
+                        />
+                    </div>
+                ))}
+            </aside>
 
-// Une version déjà dans la file : son avancement, ou son état.
-function JobState({ job }: { job: QueueJob }) {
-    if (job.status.state === "running")
-        return (
-            <span className="engine-progress">
-        <span>{progressText(job.progress)}</span>
-        <ProgressBar progress={job.progress} />
-      </span>
-        );
-    if (job.status.state === "failed")
-        return (
-            <span className="error" title={job.status.error}>
-        Échec, voir la file
-      </span>
-        );
-    return (
-        <span className="muted">
-      {job.status.state === "paused" ? "En pause" : "En attente"}
-    </span>
+            <div className="engine-main">
+                <section>
+                    <h2>Sur ce disque</h2>
+                    {local.length === 0 ? (
+                        <p className="muted">Aucun moteur enregistré sur cet ordinateur.</p>
+                    ) : (
+                        <table className="installed">
+                            <thead>
+                            <tr>
+                                <th scope="col">Version</th>
+                                <th scope="col">Dossier</th>
+                                <th scope="col">Origine</th>
+                                <th scope="col">
+                                    <span className="sr-only">Actions</span>
+                                </th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {local.map((e) => (
+                                <tr key={e.dir}>
+                                    <td className="engine-version">{e.version ?? "?"}</td>
+                                    <td className="path" title={e.dir}>
+                                        {tilde(e.dir)}
+                                    </td>
+                                    <td>
+                      <span className={e.byUehub ? "origin ours" : "origin"}>
+                        {e.byUehub ? "uehub" : "hors uehub"}
+                      </span>
+                                    </td>
+                                    <td className="actions">
+                                        {removing === e.dir ? (
+                                            <span className="muted">Suppression…</span>
+                                        ) : confirming === e.dir ? (
+                                            <>
+                                                <span>Supprimer ce dossier ?</span>
+                                                <button
+                                                    className="danger"
+                                                    onClick={() => void uninstall(e)}
+                                                >
+                                                    Supprimer
+                                                </button>
+                                                <button
+                                                    className="quiet"
+                                                    onClick={() => setConfirming(null)}
+                                                >
+                                                    Annuler
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <button onClick={() => launch(e)}>Lancer</button>
+                                                {e.byUehub && (
+                                                    <button
+                                                        className="quiet"
+                                                        onClick={() => setConfirming(e.dir)}
+                                                    >
+                                                        Désinstaller
+                                                    </button>
+                                                )}
+                                            </>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                            </tbody>
+                        </table>
+                    )}
+                    {status && (
+                        <p className={status.error ? "error" : "muted"} role="status">
+                            {status.text}
+                        </p>
+                    )}
+                </section>
+
+                <section>
+                    <div className="section-head">
+                        <h2>Publiées par Epic</h2>
+                        {catalog?.eulaAccepted && (
+                            <>
+                                <MatrixLegend />
+                                <button className="quiet" onClick={() => void loadCatalog()}>
+                                    Recharger
+                                </button>
+                            </>
+                        )}
+                    </div>
+                    {notice && (
+                        <p className="error" role="alert">
+                            {notice}
+                        </p>
+                    )}
+                    {catalogError ? (
+                        <div className="message">
+                            <p className="error">
+                                Impossible de lire la liste d'Epic : {catalogError}
+                            </p>
+                            <button onClick={() => void loadCatalog()}>Réessayer</button>
+                        </div>
+                    ) : !catalog ? (
+                        <p className="muted">Connexion à unrealengine.com…</p>
+                    ) : !catalog.eulaAccepted ? (
+                        <div className="message">
+                            <p>
+                                Epic demande d'accepter le contrat de licence d'Unreal Engine
+                                (CLUF) avant de proposer le moteur. Accepte-le dans ton
+                                navigateur, puis recharge la liste.
+                            </p>
+                            <div className="buttons">
+                                <button
+                                    className="primary"
+                                    onClick={() => void api.openEulaPage()}
+                                >
+                                    Lire et accepter le CLUF
+                                </button>
+                                <button onClick={() => void loadCatalog()}>
+                                    J'ai accepté, recharger
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <EngineMatrix
+                            engines={all}
+                            local={local}
+                            jobs={jobs}
+                            selected={current}
+                            onSelect={setSelected}
+                        />
+                    )}
+                </section>
+            </div>
+
+            <EngineInspector
+                engine={all.find((e) => e.version === current)}
+                installed={local.find((l) => l.version === current)}
+                job={job}
+                rate={job ? rates[job.id] : undefined}
+                folder={folder}
+                free={free}
+                onInstall={(version) => void install(version)}
+                onLaunch={launch}
+                onPause={(id) => void api.pauseJob(id)}
+                onResume={(id) => void api.resumeJob(id)}
+                onRemove={(id) => void api.removeJob(id)}
+            />
+        </section>
     );
 }
 
@@ -384,7 +357,7 @@ interface ProjectActionProps {
 function ProjectAction(props: ProjectActionProps) {
     const { project, available, jobs, onOpen, onInstall } = props;
     if (project.opensWith)
-        return <button onClick={onOpen}>Ouvrir avec UE {project.opensWith}</button>;
+        return <button onClick={onOpen}>Ouvrir avec {project.opensWith}</button>;
     if (!project.engine) return null;
     // La liste d'Epic est triée du plus récent au plus ancien : la première est la bonne.
     const candidate = available.find((e) =>
@@ -392,13 +365,32 @@ function ProjectAction(props: ProjectActionProps) {
     );
     if (!candidate)
         return (
-            <span className="muted">UE {project.engine} n'est pas installé</span>
+            <p className="muted small">
+                Aucun moteur {project.engine} sur ce disque.
+            </p>
         );
     const job = jobFor(jobs, candidate.version);
-    if (job) return <JobState job={job} />;
+    if (job)
+        return (
+            <p className="muted small">
+                UE {candidate.version} :{" "}
+                {job.status.state === "running"
+                    ? progressText(job.progress)
+                    : job.status.state === "failed"
+                        ? "échec, voir la file"
+                        : job.status.state === "paused"
+                            ? "en pause"
+                            : "en attente"}
+            </p>
+        );
     return (
-        <button onClick={() => onInstall(candidate.version)}>
-            Installer UE {candidate.version}
-        </button>
+        <>
+            <p className="muted small">
+                Aucun moteur {project.engine} sur ce disque.
+            </p>
+            <button className="primary" onClick={() => onInstall(candidate.version)}>
+                Installer {candidate.version}
+            </button>
+        </>
     );
 }

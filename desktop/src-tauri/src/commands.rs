@@ -14,6 +14,7 @@ use uehub_core::{
     EpicClient, FabAsset, InstallProgress, InstalledEngine, LOGIN_URL, PreparedDownload, Progress,
     ProjectVersion, RecentProjects, UnrealProject, UnrealSession, engine_for, engines_dir,
     folder_name, installed_engines, launch_editor, parse_version, pick_for_project, pick_version,
+    extracted_size
 };
 
 use crate::queue::{Job, Queue, Request, Status};
@@ -124,13 +125,16 @@ pub struct RecentProject {
     opens_with: Option<String>,
 }
 
-/// L'avancement du job en cours, envoyé avec la file : {"phase":"chunks","done":3,"total":40}
+/// L'avancement du job en cours, envoyé avec la file :
+/// {"phase":"chunks","done":3,"total":40,"bytes":3145728}
 #[derive(Clone, Serialize)]
 #[serde(tag = "phase", rename_all = "camelCase")]
 pub enum ProgressEvent {
     Chunks {
         done: usize,
         total: usize,
+        /// Octets reçus du réseau, pour la vitesse
+        bytes: u64,
     },
     Files {
         done: usize,
@@ -146,7 +150,7 @@ pub enum ProgressEvent {
 impl From<Progress> for ProgressEvent {
     fn from(p: Progress) -> Self {
         match p {
-            Progress::Chunks { done, total } => Self::Chunks { done, total },
+            Progress::Chunks { done, total, bytes } => Self::Chunks { done, total, bytes },
             Progress::Files { done, total } => Self::Files { done, total },
         }
     }
@@ -168,6 +172,8 @@ pub struct AvailableEngine {
     version: String,
     /// Taille du zip en octets
     size: u64,
+    /// Place estimée une fois extrait, en octets
+    extracted: u64,
     /// Date de mise en ligne : "2026-09-22"
     date: Option<String>,
 }
@@ -636,6 +642,7 @@ pub async fn available_engines(state: State<'_, AppState>) -> Result<EngineCatal
                 .and_then(|d| d.get(..10))
                 .map(String::from),
             version: e.version,
+            extracted: extracted_size(e.size),
             size: e.size,
         })
         .collect();
@@ -663,6 +670,12 @@ pub fn set_engines_folder(app: AppHandle, folder: PathBuf) -> Result<()> {
     settings
         .save(&app)
         .map_err(|e| Error::Msg(format!("réglages non enregistrés : {e}")))
+}
+
+/// La place libre, en octets, sur le disque du dossier des moteurs.
+#[tauri::command]
+pub fn free_space(folder: PathBuf) -> Result<u64> {
+    Ok(uehub_core::free_space(&folder)?)
 }
 
 /// Le moteur enregistré dans ce dossier. L'interface ne désigne un moteur que par

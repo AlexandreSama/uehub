@@ -10,8 +10,7 @@
     "tauri": "__NV_DISABLE_EXPLICIT_SYNC=1 tauri"
   },
   "dependencies": {
-    "@fontsource/barlow": "^5.3.0",
-    "@fontsource/barlow-semi-condensed": "^5.3.0",
+    "@fontsource-variable/archivo": "^5.3.0",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2.8.3",
     "react": "^19.1.0",

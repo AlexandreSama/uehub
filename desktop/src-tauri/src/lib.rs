@@ -63,6 +63,7 @@ pub fn run() {
             commands::launch_engine,
             commands::open_project,
             commands::remove_engine,
+            commands::free_space,
         ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement de l'application");

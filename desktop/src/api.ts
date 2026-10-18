@@ -1,6 +1,7 @@
 // Les appels vers Rust, typés. Chaque fonction correspond à une commande de commands.rs.
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { homeDir } from "@tauri-apps/api/path";
 
 export type AssetKind = "pack" | "plugin" | "project";
 
@@ -33,12 +34,14 @@ export interface RecentProject {
     opensWith: string | null;
 }
 
-export interface Progress {
-    // "bytes" : le zip d'un moteur, en octets
-    phase: "chunks" | "files" | "bytes";
-    done: number;
-    total: number;
-}
+// L'avancement du job en cours (ProgressEvent dans commands.rs).
+export type Progress =
+// Les morceaux d'un asset, et les octets reçus pour les télécharger
+    | { phase: "chunks"; done: number; total: number; bytes: number }
+    // Les fichiers écrits (asset) ou extraits (moteur)
+    | { phase: "files"; done: number; total: number }
+    // Le zip d'un moteur, en octets
+    | { phase: "bytes"; done: number; total: number };
 
 // Ce qu'on demande à la file (Request dans queue.rs).
 export type JobRequest =
@@ -74,7 +77,9 @@ export interface QueueJob {
 // Un moteur proposé par Epic (AvailableEngine dans commands.rs).
 export interface AvailableEngine {
     version: string;
+    // Taille du zip, puis place estimée une fois extrait, en octets
     size: number;
+    extracted: number;
     date: string | null;
 }
 
@@ -112,6 +117,7 @@ export const api = {
     enginesFolder: () => invoke<string>("engines_folder"),
     setEnginesFolder: (folder: string) =>
         invoke<void>("set_engines_folder", { folder }),
+    freeSpace: (folder: string) => invoke<number>("free_space", { folder }),
     openEulaPage: () => invoke<void>("open_eula_page"),
     launchEngine: (dir: string) => invoke<void>("launch_engine", { dir }),
     openProject: (uproject: string) => invoke<void>("open_project", { uproject }),
@@ -134,12 +140,28 @@ export const KIND_LABEL: Record<AssetKind, string> = {
     project: "Projet complet",
 };
 
-// ["4.27", "5.0", "5.4"] → "UE 4.27 – 5.4"
+// "5.10" après "5.9" : on compare les nombres, pas le texte.
+export function compareVersions(a: string, b: string): number {
+    const x = a.split(".").map(Number);
+    const y = b.split(".").map(Number);
+    for (let i = 0; i < Math.max(x.length, y.length); i++) {
+        const d = (x[i] ?? 0) - (y[i] ?? 0);
+        if (d !== 0) return d;
+    }
+    return 0;
+}
+
+// "5.8.3" → "5.8"
+export function branchOf(version: string): string {
+    return version.split(".").slice(0, 2).join(".");
+}
+
+// ["4.27", "5.0", "5.4"] → "4.27 – 5.4"
 export function engineRange(engines: string[]): string {
     if (engines.length === 0) return "Version inconnue";
     const first = engines[0];
     const last = engines[engines.length - 1];
-    return first === last ? `UE ${first}` : `UE ${first} – ${last}`;
+    return first === last ? first : `${first} – ${last}`;
 }
 
 const number = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 });
@@ -148,6 +170,26 @@ export function formatBytes(bytes: number): string {
     if (bytes >= 1e9) return `${number.format(bytes / 1e9)} Go`;
     if (bytes >= 1e6) return `${number.format(bytes / 1e6)} Mo`;
     return `${number.format(bytes / 1e3)} Ko`;
+}
+
+// 18 400 000 → "18,4 Mo/s"
+export function formatRate(bytesPerSecond: number): string {
+    return `${formatBytes(bytesPerSecond)}/s`;
+}
+
+// 1 500 → "25 min", 4 300 → "1 h 12 min"
+export function formatDuration(seconds: number): string {
+    if (seconds < 60) return "moins d'une minute";
+    const minutes = Math.round(seconds / 60);
+    if (minutes < 60) return `${minutes} min`;
+    const rest = minutes % 60;
+    const hours = `${Math.floor(minutes / 60)} h`;
+    return rest > 0 ? `${hours} ${rest} min` : hours;
+}
+
+// La part faite, entre 0 et 1.
+export function progressRatio(progress: Progress | null): number {
+    return progress && progress.total > 0 ? progress.done / progress.total : 0;
 }
 
 const PHASE: Record<Progress["phase"], string> = {
@@ -177,9 +219,9 @@ const TARGET: Record<JobRequest["kind"], string> = {
     installEngine: "Installation dans",
 };
 
-// "Ajout à ForestShooter", "Téléchargement dans /home/…/Megascans_Grass"
+// "Ajout à ForestShooter", "Téléchargement dans ~/Assets/Megascans_Grass"
 export function jobTarget(job: QueueJob): string {
-    return `${TARGET[job.request.kind]} ${job.target}`;
+    return `${TARGET[job.request.kind]} ${tilde(job.target)}`;
 }
 
 // Le verbe du bilan : "Ajouté : Megascans: Grass, 61 fichiers, 1,2 Go"
@@ -188,3 +230,56 @@ export const DONE: Record<JobRequest["kind"], string> = {
     addToProject: "Ajouté",
     installEngine: "Installé",
 };
+
+const DONE_TARGET: Record<JobRequest["kind"], string> = {
+    download: "Téléchargé dans",
+    addToProject: "Ajouté à",
+    installEngine: "Installé dans",
+};
+
+// "Ajouté à ArchViz_Loft", "Installé dans ~/UnrealEngine/5.8.3"
+export function doneTarget(job: QueueJob): string {
+    return `${DONE_TARGET[job.request.kind]} ${tilde(job.target)}`;
+}
+
+// La version qu'installe un job, s'il installe un moteur et n'est pas terminé.
+export function installing(job: QueueJob): string | null {
+    return job.request.kind === "installEngine" && job.status.state !== "done"
+        ? job.request.version
+        : null;
+}
+
+// Le job de la file qui installe cette version, s'il n'est pas terminé.
+export function jobFor(jobs: QueueJob[], version: string) {
+    return jobs.find((j) => installing(j) === version);
+}
+
+const day = new Intl.DateTimeFormat("fr-FR", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+});
+
+// "2026-09-22" → "22 sept. 2026"
+export function formatDay(date: string | null): string {
+    return date ? day.format(new Date(date)) : "";
+}
+
+// Le dossier personnel, lu une fois au démarrage pour afficher les chemins avec « ~ ».
+let home = "";
+
+export async function loadHome() {
+    try {
+        home = (await homeDir()).replace(/\/$/, "");
+    } catch {
+        home = "";
+    }
+}
+
+// "/home/alex/UnrealEngine/5.8.3" → "~/UnrealEngine/5.8.3"
+export function tilde(path: string): string {
+    if (home && (path === home || path.startsWith(`${home}/`)))
+        return `~${path.slice(home.length)}`;
+    return path;
+}

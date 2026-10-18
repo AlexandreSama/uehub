@@ -108,8 +108,13 @@ fn parse_ue(v: &str) -> Option<(u32, u32)> {
 /// Avancement, envoyé à l'interface (barre de progression).
 #[derive(Debug, Clone, Copy)]
 pub enum Progress {
-    /// `done` chunks téléchargés sur `total`
-    Chunks { done: usize, total: usize },
+    /// `done` chunks téléchargés sur `total`, et `bytes` octets reçus du réseau
+    /// (un chunk déjà en cache ne compte pas) : de quoi calculer la vitesse
+    Chunks {
+        done: usize,
+        total: usize,
+        bytes: u64,
+    },
     /// `done` fichiers écrits sur `total`
     Files { done: usize, total: usize },
 }
@@ -169,7 +174,11 @@ impl DownloadPlan {
     ) -> Result<()> {
         fs::create_dir_all(cache).await?;
         let total = self.chunks.len();
-        on_progress(Progress::Chunks { done: 0, total });
+        on_progress(Progress::Chunks {
+            done: 0,
+            total,
+            bytes: 0,
+        });
 
         // Chaque tâche possède ses données (des clones) : le futur reste `Send`,
         // ce qu'exige Tauri pour l'exécuter sur son runtime multi-thread.
@@ -181,12 +190,13 @@ impl DownloadPlan {
             })
             .buffer_unordered(jobs.max(1));
 
-        let mut done = 0;
+        let (mut done, mut bytes) = (0, 0);
         while let Some(result) = tasks.next().await {
-            result?;
+            bytes += result?;
             done += 1;
-            on_progress(Progress::Chunks { done, total });
+            on_progress(Progress::Chunks { done, total, bytes });
         }
+
         Ok(())
     }
 
@@ -224,21 +234,22 @@ fn chunk_path(cache: &Path, guid: &str) -> PathBuf {
 }
 
 /// Télécharge un chunk (3 essais), le décode et enregistre ses données décompressées.
-async fn fetch_chunk(http: &reqwest::Client, cache: &Path, guid: &str, url: &str) -> Result<()> {
+/// Renvoie le nombre d'octets reçus : 0 pour un chunk déjà en cache.
+async fn fetch_chunk(http: &reqwest::Client, cache: &Path, guid: &str, url: &str) -> Result<u64> {
     let path = chunk_path(cache, guid);
     if fs::try_exists(&path).await? {
-        return Ok(());
+        return Ok(0);
     }
 
     let mut last_error = CoreError::Download(format!("chunk {guid}"));
     for attempt in 1..=3 {
         match get_and_decode(http, url).await {
-            Ok(data) => {
+            Ok((data, received)) => {
                 // Écriture dans un fichier temporaire puis renommage : jamais de chunk à moitié écrit.
                 let tmp = path.with_extension("part");
                 fs::write(&tmp, &data).await?;
                 fs::rename(&tmp, &path).await?;
-                return Ok(());
+                return Ok(received);
             }
             Err(e) => {
                 log::warn!("chunk {guid}, essai {attempt}/3 : {e}");
@@ -250,7 +261,8 @@ async fn fetch_chunk(http: &reqwest::Client, cache: &Path, guid: &str, url: &str
     Err(last_error)
 }
 
-async fn get_and_decode(http: &reqwest::Client, url: &str) -> Result<Vec<u8>> {
+/// Les données décompressées du chunk, et la taille reçue (compressée).
+async fn get_and_decode(http: &reqwest::Client, url: &str) -> Result<(Vec<u8>, u64)> {
     let bytes = http
         .get(url)
         .send()
@@ -259,12 +271,14 @@ async fn get_and_decode(http: &reqwest::Client, url: &str) -> Result<Vec<u8>> {
         .bytes()
         .await?
         .to_vec();
+
+    let received = bytes.len() as u64;
     // Décompression zlib : travail CPU, on le sort du runtime async.
     let chunk = tokio::task::spawn_blocking(move || Chunk::from_vec(bytes))
         .await
         .map_err(|e| CoreError::Download(e.to_string()))?
         .ok_or_else(|| CoreError::Download(format!("chunk illisible : {url}")))?;
-    Ok(chunk.data)
+    Ok((chunk.data, received))
 }
 
 // ---------------------------------------------------------------------------

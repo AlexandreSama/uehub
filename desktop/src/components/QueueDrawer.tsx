@@ -1,8 +1,16 @@
-import { jobTarget, progressText, summaryText, type QueueJob } from "../api";
+import {
+  formatRate,
+  jobTarget,
+  progressText,
+  summaryText,
+  type QueueJob,
+} from "../api";
+import type { Rate } from "../rates";
 import {EngineMark, ProgressBar, Thumb} from "./Common";
 
 interface Props {
   jobs: QueueJob[];
+  rates: Record<number, Rate>;
   onPause: (id: number) => void;
   onResume: (id: number) => void;
   onRemove: (id: number) => void;
@@ -12,7 +20,7 @@ interface Props {
 
 // Le panneau de la file : un job par ligne, dans l'ordre où ils seront traités.
 export default function QueueDrawer(props: Props) {
-  const { jobs, onPause, onResume, onRemove } = props;
+  const { jobs, rates, onPause, onResume, onRemove } = props;
   const anyPaused = jobs.some((j) => j.status.state === "paused");
   const anyDone = jobs.some((j) => j.status.state === "done");
 
@@ -52,7 +60,7 @@ export default function QueueDrawer(props: Props) {
                     {jobTarget(job)}
                   </span>
                 </div>
-                <JobState job={job} />
+                <JobState job={job} rate={rates[job.id]} />
                 <div className="queue-actions">
                   {(state === "running" || state === "waiting") && (
                     <button className="quiet" onClick={() => onPause(job.id)}>
@@ -81,15 +89,16 @@ export default function QueueDrawer(props: Props) {
   );
 }
 
-function JobState({ job }: { job: QueueJob }) {
+function JobState({ job, rate }: { job: QueueJob; rate?: Rate }) {
   const status = job.status;
   switch (status.state) {
     case "running":
       return (
-        <div className="queue-state">
-          {progressText(job.progress)}
-          <ProgressBar progress={job.progress} />
-        </div>
+          <div className="queue-state">
+            {progressText(job.progress)}
+            {rate?.speed != null && `, ${formatRate(rate.speed)}`}
+            <ProgressBar progress={job.progress} />
+          </div>
       );
     case "waiting":
       return <div className="queue-state muted">En attente</div>;

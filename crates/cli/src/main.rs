@@ -232,7 +232,7 @@ fn progress_bar() -> Result<ProgressBar> {
 
 fn show_progress(bar: &ProgressBar, p: Progress) {
     let (msg, done, total) = match p {
-        Progress::Chunks { done, total } => ("chunks", done, total),
+        Progress::Chunks { done, total, .. } => ("chunks", done, total),
         Progress::Files { done, total } => ("fichiers", done, total),
     };
     bar.set_message(msg);

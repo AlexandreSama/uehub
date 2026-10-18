@@ -7,7 +7,7 @@ use std::os::unix::fs::{PermissionsExt, symlink};
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use directories::BaseDirs;
 use futures::StreamExt;
@@ -27,6 +27,10 @@ const EXTRACT_RATIO: f64 = 1.8;
 
 /// Sans un octet reçu pendant ce temps, la connexion est considérée comme coupée.
 const STALLED: Duration = Duration::from_secs(60);
+
+/// Deux messages d'avancement par seconde au plus : assez pour afficher la vitesse,
+/// sans inonder l'interface quand la connexion est rapide.
+const REPORT_EVERY: Duration = Duration::from_millis(500);
 
 /// La marque que uehub laisse dans un moteur qu'il a installé : seuls ceux-là se
 /// désinstallent depuis uehub. Un moteur compilé par toi n'est jamais supprimé.
@@ -131,8 +135,7 @@ impl EngineInstall {
     /// Vérifie qu'il reste la place pour la fin du zip et pour l'extraction (estimée).
     pub fn check_space(&self) -> Result<()> {
         let rest = self.size.saturating_sub(self.downloaded());
-        let extracted = (self.size as f64 * EXTRACT_RATIO) as u64;
-        check_space(&self.dir, rest + extracted)
+        check_space(&self.dir, rest + extracted_size(self.size))
     }
 
     /// Télécharge le zip à l'adresse de `download` (fraîche, même version), en reprenant
@@ -193,16 +196,15 @@ impl EngineInstall {
             }
         };
 
-        let mut reported = done;
+        let mut reported = Instant::now();
         loop {
             match response.chunk().await {
                 Ok(Some(chunk)) => {
                     file.write_all(&chunk).await?;
                     done += chunk.len() as u64;
-                    // Un message tous les 16 Mo : 40 Go en font déjà 2 500.
-                    if done - reported >= 16 << 20 {
+                    if reported.elapsed() >= REPORT_EVERY {
                         on_progress(InstallProgress::Download { done, total });
-                        reported = done;
+                        reported = Instant::now();
                     }
                 }
                 Ok(None) => break,
@@ -303,12 +305,25 @@ fn install_ini() -> Result<PathBuf> {
     Ok(dirs.config_dir().join("Epic/UnrealEngine/Install.ini"))
 }
 
-fn check_space(dir: &Path, needed: u64) -> Result<()> {
-    // Le dossier n'existe peut-être pas encore : on mesure le premier parent existant.
-    let existing = dir
-        .ancestors()
+/// La place que prend un moteur une fois extrait, estimée d'après la taille de son zip.
+pub fn extracted_size(zip_size: u64) -> u64 {
+    (zip_size as f64 * EXTRACT_RATIO) as u64
+}
+
+/// La place libre, en octets, sur le disque où se trouve (ou se trouvera) `dir`.
+pub fn free_space(dir: &Path) -> Result<u64> {
+    Ok(fs4::available_space(existing_parent(dir))?)
+}
+
+/// Le dossier n'existe peut-être pas encore : on mesure son premier parent existant.
+fn existing_parent(dir: &Path) -> &Path {
+    dir.ancestors()
         .find(|path| path.exists())
-        .unwrap_or(Path::new("/"));
+        .unwrap_or(Path::new("/"))
+}
+
+fn check_space(dir: &Path, needed: u64) -> Result<()> {
+    let existing = existing_parent(dir);
     let available = fs4::available_space(existing)?;
     if available < needed {
         return Err(CoreError::Download(format!(

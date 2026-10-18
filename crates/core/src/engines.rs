@@ -7,8 +7,8 @@ mod session;
 pub mod launch;
 
 pub use install::{
-    Downloaded, EngineInstall, InstallProgress, InstalledEngine, engines_dir, installed_engines,
-    uninstall_engine,
+    Downloaded, EngineInstall, InstallProgress, InstalledEngine, engines_dir, extracted_size,
+    free_space, installed_engines, uninstall_engine,
 };
 pub use launch::{engine_for, launch_editor};
 pub use session::UnrealSession;

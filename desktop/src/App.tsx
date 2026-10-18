@@ -1,21 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
-import { open } from "@tauri-apps/plugin-dialog";
+import { useEffect, useState } from "react";
 import {
     api,
     onQueueChange,
     type Account,
     type Asset,
-    type JobRequest,
     type QueueJob,
     type RecentProject,
 } from "./api";
+import { useTransferRates } from "./rates";
 import Login from "./components/Login";
-import QueueBar from "./components/QueueBar";
-import QueueDrawer from "./components/QueueDrawer";
-import TopBar, { type Filter, type View } from "./components/TopBar";
-import AssetGrid from "./components/AssetGrid";
-import Details from "./components/Details";
+import Rail, { type View } from "./components/Rail";
+import Library from "./components/Library";
 import Engines from "./components/Engines";
+import QueueDock from "./components/QueueDock";
+import QueueDrawer from "./components/QueueDrawer";
 
 type Screen = "starting" | "login" | "loading" | "library";
 
@@ -25,15 +23,10 @@ export default function App() {
     const [account, setAccount] = useState<Account | null>(null);
     const [assets, setAssets] = useState<Asset[]>([]);
     const [loadError, setLoadError] = useState<string | null>(null);
-    const [selectedId, setSelectedId] = useState<string | null>(null);
-    const [query, setQuery] = useState("");
-    const [filter, setFilter] = useState<Filter>("all");
-    const [overwrite, setOverwrite] = useState(false);
     const [recent, setRecent] = useState<RecentProject[]>([]);
     const [jobs, setJobs] = useState<QueueJob[]>([]);
     const [queueOpen, setQueueOpen] = useState(false);
-    // Refus de la file (déjà en file, version introuvable…), affiché sous les boutons.
-    const [notice, setNotice] = useState<string | null>(null);
+    const rates = useTransferRates(jobs);
 
     async function loadRecent() {
         try {
@@ -93,71 +86,8 @@ export default function App() {
         await api.logout();
         setAccount(null);
         setAssets([]);
-        setSelectedId(null);
-        setNotice(null);
         setView("library");
         setScreen("login");
-    }
-
-    const visible = useMemo(() => {
-        const q = query.trim().toLowerCase();
-        return assets.filter(
-            (a) =>
-                (filter === "all" || a.kind === filter) &&
-                a.title.toLowerCase().includes(q),
-        );
-    }, [assets, query, filter]);
-
-    // Le détail suit la grille : un asset masqué par la recherche n'y reste pas affiché.
-    const selected = visible.find((a) => a.id === selectedId) ?? null;
-
-    function handleSelect(id: string) {
-        setSelectedId(id);
-        setNotice(null);
-    }
-
-    async function enqueue(request: JobRequest) {
-        try {
-            await api.enqueue(request);
-            setNotice(null);
-        } catch (e) {
-            setNotice(String(e));
-        }
-    }
-
-    async function handleDownload() {
-        if (!selected) return;
-        const folder = await open({
-            directory: true,
-            title: "Dossier où ranger l'asset",
-        });
-        if (!folder) return;
-        await enqueue({ kind: "download", assetId: selected.id, folder });
-    }
-
-    // `path` vient de la liste des projets récents ; sinon on demande le projet.
-    async function handleAdd(path: string | null) {
-        if (!selected) return;
-        const uproject =
-            path ??
-            (await open({
-                title: "Projet Unreal",
-                filters: [{ name: "Projet Unreal", extensions: ["uproject"] }],
-            }));
-        if (!uproject) return;
-        await enqueue({
-            kind: "addToProject",
-            assetId: selected.id,
-            uproject,
-            overwrite,
-        });
-        // Rust a mis ce projet en tête de liste : on recharge.
-        await loadRecent();
-    }
-
-    async function handleForget(uproject: string) {
-        await api.forgetProject(uproject);
-        await loadRecent();
     }
 
     if (screen === "starting") return <div className="splash" />;
@@ -166,44 +96,28 @@ export default function App() {
 
     return (
         <div className="app">
-            <TopBar
+            <Rail
                 view={view}
                 onView={setView}
                 account={account}
-                count={assets.length}
-                query={query}
-                onQuery={setQuery}
-                filter={filter}
-                onFilter={setFilter}
                 onLogout={handleLogout}
             />
             {view === "engines" ? (
-                <Engines jobs={jobs} />
+                <Engines jobs={jobs} rates={rates} />
             ) : (
-                <>
-                    <AssetGrid
-                        loading={screen === "loading"}
-                        error={loadError}
-                        onRetry={loadLibrary}
-                        assets={visible}
-                        selectedId={selectedId}
-                        onSelect={handleSelect}
-                    />
-                    <Details
-                        asset={selected}
-                        recent={recent}
-                        notice={notice}
-                        overwrite={overwrite}
-                        onOverwrite={setOverwrite}
-                        onAdd={handleAdd}
-                        onForget={handleForget}
-                        onDownload={handleDownload}
-                    />
-                </>
+                <Library
+                    loading={screen === "loading"}
+                    error={loadError}
+                    onRetry={loadLibrary}
+                    assets={assets}
+                    recent={recent}
+                    onRecentChange={loadRecent}
+                />
             )}
             {queueOpen && (
                 <QueueDrawer
                     jobs={jobs}
+                    rates={rates}
                     onPause={(id) => void api.pauseJob(id)}
                     onResume={(id) => void api.resumeJob(id)}
                     onRemove={(id) => void api.removeJob(id)}
@@ -211,10 +125,12 @@ export default function App() {
                     onClearFinished={() => void api.clearFinished()}
                 />
             )}
-            <QueueBar
+            <QueueDock
                 jobs={jobs}
+                rates={rates}
                 open={queueOpen}
                 onToggle={() => setQueueOpen(!queueOpen)}
+                onPause={(id) => void api.pauseJob(id)}
                 onResumeAll={() => void api.resumeAll()}
             />
         </div>
