@@ -11,6 +11,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::Notify;
 
 use crate::commands::{AppState, ProgressEvent, Summary, run_job};
+use crate::notify;
 
 // ---------------------------------------------------------------------------
 // Ce qu'on range dans la file (et dans queue.json)
@@ -369,7 +370,7 @@ pub async fn worker(app: AppHandle) {
         let result = Abortable::new(run_job(&state, &queue, &job), registration).await;
         *queue.current.lock().unwrap() = None;
 
-        // Interrompu (pause ou retrait) : la file est déjà à jour.
+        // Interrompu (pause ou retrait) : la file est déjà à jour, et pas de notification.
         if let Ok(result) = result {
             let status = match result {
                 Ok(summary) => Status::Done { summary },
@@ -377,7 +378,8 @@ pub async fn worker(app: AppHandle) {
                     error: e.to_string(),
                 },
             };
-            queue.update(|jobs| jobs.finish(job.id, status));
+            queue.update(|jobs| jobs.finish(job.id, status.clone()));
+            notify::job_finished(&app, &Job { status, ..job });
         }
     }
 }

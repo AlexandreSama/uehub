@@ -9,9 +9,9 @@ use tauri::{AppHandle, State};
 use tauri_plugin_opener::OpenerExt;
 use tokio::sync::Mutex;
 use uehub_core::{
-    AssetKind, CoreError, DownloadSummary, EpicClient, FabAsset, LOGIN_URL, Progress,
-    ProjectVersion, RecentProjects, UnrealProject, folder_name, parse_version, pick_for_project,
-    pick_version,
+    AssetKind, CoreError, DownloadSummary, EpicClient, FabAsset, LOGIN_URL, PreparedDownload,
+    Progress, ProjectVersion, RecentProjects, UnrealProject, folder_name, parse_version,
+    pick_for_project, pick_version,
 };
 
 use crate::queue::{Job, Queue, Request, Status};
@@ -21,7 +21,7 @@ const JOBS: usize = 8;
 
 /// L'état partagé par toutes les commandes.
 pub struct AppState {
-    /// Verrou asynchrone : le téléchargement en cours le garde jusqu'à la fin.
+    /// Verrou asynchrone : un job ne le garde que le temps de préparer son téléchargement.
     client: Mutex<EpicClient>,
     /// La dernière bibliothèque chargée, pour retrouver un asset par son id.
     library: StdMutex<Vec<FabAsset>>,
@@ -190,6 +190,29 @@ fn summary(done: DownloadSummary, note: Option<String>) -> Summary {
     }
 }
 
+impl Summary {
+    /// "61 fichiers, 1,2 Go", comme summaryText côté React.
+    pub fn text(&self) -> String {
+        format!("{} fichiers, {}", self.files, format_bytes(self.bytes))
+    }
+
+    pub fn note(&self) -> Option<&str> {
+        self.note.as_deref()
+    }
+}
+
+/// 1 234 567 890 → "1,2 Go", comme formatBytes côté React.
+fn format_bytes(bytes: u64) -> String {
+    let (value, unit) = match bytes {
+        b if b >= 1_000_000_000 => (b as f64 / 1e9, "Go"),
+        b if b >= 1_000_000 => (b as f64 / 1e6, "Mo"),
+        b => (b as f64 / 1e3, "Ko"),
+    };
+    let text = format!("{value:.1}");
+    let text = text.strip_suffix(".0").unwrap_or(&text);
+    format!("{} {unit}", text.replace('.', ","))
+}
+
 // ---------------------------------------------------------------------------
 // Choisir la version à installer
 // ---------------------------------------------------------------------------
@@ -245,19 +268,32 @@ fn plan_add(asset: &FabAsset, uproject: &Path) -> Result<AddPlan> {
 
 /// Exécute un job de la file. Seul le worker l'appelle, un job à la fois.
 pub async fn run_job(state: &AppState, queue: &Queue, job: &Job) -> Result<Summary> {
+    let (prepared, note) = prepare(state, queue, job).await?;
+    // Le client est libre : pendant les chunks, la bibliothèque peut se recharger.
+    let send = |p: Progress| queue.set_progress(job.id, p.into());
+    let done = prepared.run(JOBS, &send).await?;
+    Ok(summary(done, note))
+}
+
+/// La partie qui parle à Epic. Le verrou du client est relâché en sortant d'ici,
+/// et `PreparedDownload` ne peut pas le garder : il ne contient aucune référence.
+async fn prepare(
+    state: &AppState,
+    queue: &Queue,
+    job: &Job,
+) -> Result<(PreparedDownload, Option<String>)> {
     let mut client = state.client.lock().await;
     let asset = state
         .asset_or_reload(&mut client, job.request.asset_id())
         .await?;
-    let send = |p: Progress| queue.set_progress(job.id, p.into());
 
     match &job.request {
         Request::Download { folder, .. } => {
             let version = latest_version(&asset)?;
             queue.set_artifact(job.id, &version.artifact_id);
             let out = folder.join(folder_name(&asset.title));
-            let done = client.download(&asset, &version, &out, JOBS, &send).await?;
-            Ok(summary(done, None))
+            let prepared = client.prepare_download(&asset, &version, &out).await?;
+            Ok((prepared, None))
         }
         Request::AddToProject {
             uproject,
@@ -266,17 +302,10 @@ pub async fn run_job(state: &AppState, queue: &Queue, job: &Job) -> Result<Summa
         } => {
             let plan = plan_add(&asset, uproject)?;
             queue.set_artifact(job.id, &plan.version.artifact_id);
-            let done = client
-                .add_to_project(
-                    &asset,
-                    &plan.version,
-                    &plan.project,
-                    *overwrite,
-                    JOBS,
-                    &send,
-                )
+            let prepared = client
+                .prepare_add(&asset, &plan.version, &plan.project, *overwrite)
                 .await?;
-            Ok(summary(done, plan.note))
+            Ok((prepared, plan.note))
         }
     }
 }
@@ -313,7 +342,7 @@ pub async fn login(state: State<'_, AppState>, code: String) -> Result<Account> 
 
 #[tauri::command]
 pub async fn logout(state: State<'_, AppState>, queue: State<'_, Queue>) -> Result<()> {
-    // Le téléchargement en cours garde le client : on met la file en pause pour le libérer.
+    // Sans compte, les jobs en attente échoueraient l'un après l'autre : on met tout en pause.
     queue.pause_all();
     state.library.lock().unwrap().clear();
     state.client.lock().await.logout().await?;

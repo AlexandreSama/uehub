@@ -151,10 +151,8 @@ impl EpicClient {
         jobs: usize,
         on_progress: &(dyn Fn(Progress) + Send + Sync),
     ) -> Result<DownloadSummary> {
-        let manifest = self.fab_manifest(asset, version).await?;
-        let plan = DownloadPlan::from_manifest(&manifest);
-        self.install(&plan, version, out_dir, jobs, on_progress)
-            .await
+        let prepared = self.prepare_download(asset, version, out_dir).await?;
+        prepared.run(jobs, on_progress).await
     }
 
     /// Ajoute une version d'un asset dans un projet Unreal, au bon endroit selon son type.
@@ -168,6 +166,31 @@ impl EpicClient {
         jobs: usize,
         on_progress: &(dyn Fn(Progress) + Send + Sync),
     ) -> Result<DownloadSummary> {
+        let prepared = self.prepare_add(asset, version, project, overwrite).await?;
+        prepared.run(jobs, on_progress).await
+    }
+
+    /// Première moitié de `download` : lit le manifest chez Epic.
+    pub async fn prepare_download(
+        &mut self,
+        asset: &FabAsset,
+        version: &ProjectVersion,
+        out_dir: &Path,
+    ) -> Result<PreparedDownload> {
+        let manifest = self.fab_manifest(asset, version).await?;
+        let plan = DownloadPlan::from_manifest(&manifest);
+        Ok(self.prepared(plan, version, out_dir.to_path_buf()))
+    }
+
+    /// Première moitié de `add_to_project` : lit le manifest, choisit où écrire
+    /// et vérifie qu'on n'écrase rien sans `overwrite`.
+    pub async fn prepare_add(
+        &mut self,
+        asset: &FabAsset,
+        version: &ProjectVersion,
+        project: &UnrealProject,
+        overwrite: bool,
+    ) -> Result<PreparedDownload> {
         let kind = AssetKind::of(asset);
         if kind == AssetKind::CompleteProject {
             return Err(CoreError::Project(format!(
@@ -189,36 +212,61 @@ impl EpicClient {
                 return Err(CoreError::Conflict(existing.len(), first.to_string()));
             }
         }
-        self.install(&plan, version, &target, jobs, on_progress)
-            .await
+        Ok(self.prepared(plan, version, target))
     }
 
-    /// Télécharge les chunks puis écrit les fichiers dans `out_dir`.
-    async fn install(
+    fn prepared(
         &self,
-        plan: &DownloadPlan,
+        plan: DownloadPlan,
         version: &ProjectVersion,
-        out_dir: &Path,
-        jobs: usize,
-        on_progress: &(dyn Fn(Progress) + Send + Sync),
-    ) -> Result<DownloadSummary> {
-        let cache = cache_dir()?.join(&version.artifact_id);
-        plan.download_chunks(&self.http, &cache, jobs, on_progress)
-            .await?;
-        plan.assemble_files(&cache, out_dir, on_progress).await?;
-        tokio::fs::remove_dir_all(&cache).await?;
-
-        Ok(DownloadSummary {
-            files: plan.file_count(),
-            bytes: plan.install_size(),
-            dir: out_dir.to_path_buf(),
-        })
+        out_dir: PathBuf,
+    ) -> PreparedDownload {
+        PreparedDownload {
+            plan,
+            artifact_id: version.artifact_id.clone(),
+            out_dir,
+            // Un clone de reqwest::Client partage les mêmes connexions : il ne coûte rien.
+            http: self.http.clone(),
+        }
     }
 
     /// Déconnexion côté Epic + suppression de la session locale.
     pub async fn logout(&mut self) -> Result<()> {
         let _ = self.egs.logout().await;
         self.store.clear()
+    }
+}
+
+/// Un téléchargement prêt à partir : le manifest est lu, la destination choisie.
+/// Il ne garde aucune référence au client : les chunks viennent du CDN, sans compte Epic.
+pub struct PreparedDownload {
+    plan: DownloadPlan,
+    artifact_id: String,
+    out_dir: PathBuf,
+    http: reqwest::Client,
+}
+
+impl PreparedDownload {
+    /// Seconde moitié : télécharge les chunks puis écrit les fichiers.
+    pub async fn run(
+        &self,
+        jobs: usize,
+        on_progress: &(dyn Fn(Progress) + Send + Sync),
+    ) -> Result<DownloadSummary> {
+        let cache = cache_dir()?.join(&self.artifact_id);
+        self.plan
+            .download_chunks(&self.http, &cache, jobs, on_progress)
+            .await?;
+        self.plan
+            .assemble_files(&cache, &self.out_dir, on_progress)
+            .await?;
+        tokio::fs::remove_dir_all(&cache).await?;
+
+        Ok(DownloadSummary {
+            files: self.plan.file_count(),
+            bytes: self.plan.install_size(),
+            dir: self.out_dir.clone(),
+        })
     }
 }
 

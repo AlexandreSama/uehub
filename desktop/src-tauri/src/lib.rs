@@ -1,6 +1,7 @@
 //! L'application Tauri : la fenêtre, les plugins et les commandes appelées par React.
 
 mod commands;
+mod notify;
 mod queue;
 mod thumbs;
 
@@ -15,6 +16,8 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             // Recharge la session enregistrée (trousseau ou fichier) dès le démarrage.
             let client = EpicClient::new()?;
@@ -23,6 +26,8 @@ pub fn run() {
             // La file enregistrée revient en pause ; le worker attend qu'on la relance.
             app.manage(Queue::load(app.handle().clone())?);
             tauri::async_runtime::spawn(queue::worker(app.handle().clone()));
+            tauri::async_runtime::spawn(queue::worker(app.handle().clone()));
+            notify::setup(app.handle())?;
             Ok(())
         })
         // Chaque <img src="thumb://…"> arrive ici. On répond depuis une tâche à part
