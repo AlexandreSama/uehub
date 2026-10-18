@@ -16,6 +16,8 @@ pub enum CoreError {
     HashMismatch(String),
     #[error("projet : {0}")]
     Project(String),
+    #[error("moteur : {0}")]
+    Engine(String),
     #[error("{0} fichier(s) existent déjà dans le projet, dont {1} (autorise l'écrasement)")]
     Conflict(usize, String),
     #[error("trousseau : {0}")]

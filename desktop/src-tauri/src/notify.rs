@@ -48,6 +48,7 @@ fn message(job: &Job) -> Option<(String, String)> {
             let title = match job.request {
                 Request::Download { .. } => format!("Téléchargement terminé : {}", job.title),
                 Request::AddToProject { .. } => format!("Ajout terminé : {}", job.title),
+                Request::InstallEngine { .. } => format!("Installation terminée : {}", job.title),
             };
             let mut body = format!("{} dans {}", summary.text(), job.target);
             if let Some(note) = summary.note() {

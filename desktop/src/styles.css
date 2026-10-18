@@ -178,6 +178,30 @@ input::placeholder {
     margin-right: 8px;
 }
 
+/* Les deux écrans : le blanc des fils d'exécution souligne celui qui est affiché. */
+.views {
+    display: flex;
+    gap: 2px;
+}
+
+.views button {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    color: var(--muted);
+    padding: 6px 10px;
+}
+
+.views button:hover {
+    color: var(--text);
+}
+
+.views button[aria-current="page"] {
+    color: var(--text);
+    border-bottom-color: var(--exec);
+}
+
 .search {
     flex: 1;
     max-width: 420px;
@@ -410,6 +434,174 @@ input::placeholder {
 .check input {
     accent-color: var(--exec);
     margin: 0;
+}
+
+/* ---------- Écran Moteurs ---------- */
+
+/* Il prend la place de la grille et du panneau de détail. */
+.engines {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    overflow-y: auto;
+    padding: 28px 32px;
+}
+
+.engines-page {
+    max-width: 860px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.engines-head {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.engines-head h2 {
+    font-family: "Barlow Semi Condensed", "Barlow", sans-serif;
+    font-weight: 600;
+    font-size: 24px;
+    line-height: 1.15;
+}
+
+.engines-head p,
+.engines-space,
+.engines-message {
+    max-width: 66ch;
+}
+
+.engines h3 {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+    margin-top: 16px;
+}
+
+.engines-available {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.engines-available h3 {
+    margin-top: 0;
+}
+
+.engines-available button,
+.engines-folder button {
+    padding: 3px 10px;
+    font-size: 13px;
+}
+
+.engines-page > button {
+    align-self: flex-start;
+    padding-left: 4px;
+}
+
+.engine-list {
+    list-style: none;
+    padding: 0;
+    border-top: 1px solid var(--line);
+}
+
+.engine-row {
+    display: grid;
+    grid-template-columns: 110px 120px 80px minmax(0, 1fr);
+    align-items: center;
+    gap: 16px;
+    min-height: 48px;
+    padding: 6px 4px;
+    border-bottom: 1px solid var(--line);
+}
+
+.engine-row.local {
+    grid-template-columns: 110px minmax(0, 1fr) auto;
+}
+
+.engine-row.project {
+    grid-template-columns: minmax(0, 1fr) 80px auto;
+}
+
+.engine-project {
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.engine-version {
+    font-family: "Barlow Semi Condensed", "Barlow", sans-serif;
+    font-weight: 600;
+    font-size: 17px;
+}
+
+.engine-size {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.engine-action {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    font-size: 13px;
+}
+
+.engine-action button {
+    padding: 4px 14px;
+}
+
+.engine-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+    max-width: 280px;
+}
+
+.engine-dir {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.engines-folder {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.engines-message {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px 18px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel);
+}
+
+.engines-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* Dans la file, un moteur n'a pas de vignette : sa version sur le bleu des nœuds. */
+.engine-mark {
+    display: grid;
+    place-items: center;
+    background: var(--node-head);
+    font-family: "Barlow Semi Condensed", "Barlow", sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text);
 }
 
 /* ---------- Barre d'état ---------- */

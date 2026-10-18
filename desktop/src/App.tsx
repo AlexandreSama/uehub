@@ -10,16 +10,18 @@ import {
     type RecentProject,
 } from "./api";
 import Login from "./components/Login";
-import TopBar, { type Filter } from "./components/TopBar";
-import AssetGrid from "./components/AssetGrid";
-import Details from "./components/Details";
 import QueueBar from "./components/QueueBar";
 import QueueDrawer from "./components/QueueDrawer";
+import TopBar, { type Filter, type View } from "./components/TopBar";
+import AssetGrid from "./components/AssetGrid";
+import Details from "./components/Details";
+import Engines from "./components/Engines";
 
 type Screen = "starting" | "login" | "loading" | "library";
 
 export default function App() {
     const [screen, setScreen] = useState<Screen>("starting");
+    const [view, setView] = useState<View>("library");
     const [account, setAccount] = useState<Account | null>(null);
     const [assets, setAssets] = useState<Asset[]>([]);
     const [loadError, setLoadError] = useState<string | null>(null);
@@ -93,6 +95,7 @@ export default function App() {
         setAssets([]);
         setSelectedId(null);
         setNotice(null);
+        setView("library");
         setScreen("login");
     }
 
@@ -164,6 +167,8 @@ export default function App() {
     return (
         <div className="app">
             <TopBar
+                view={view}
+                onView={setView}
                 account={account}
                 count={assets.length}
                 query={query}
@@ -172,24 +177,30 @@ export default function App() {
                 onFilter={setFilter}
                 onLogout={handleLogout}
             />
-            <AssetGrid
-                loading={screen === "loading"}
-                error={loadError}
-                onRetry={loadLibrary}
-                assets={visible}
-                selectedId={selectedId}
-                onSelect={handleSelect}
-            />
-            <Details
-                asset={selected}
-                recent={recent}
-                notice={notice}
-                overwrite={overwrite}
-                onOverwrite={setOverwrite}
-                onAdd={handleAdd}
-                onForget={handleForget}
-                onDownload={handleDownload}
-            />
+            {view === "engines" ? (
+                <Engines jobs={jobs} />
+            ) : (
+                <>
+                    <AssetGrid
+                        loading={screen === "loading"}
+                        error={loadError}
+                        onRetry={loadLibrary}
+                        assets={visible}
+                        selectedId={selectedId}
+                        onSelect={handleSelect}
+                    />
+                    <Details
+                        asset={selected}
+                        recent={recent}
+                        notice={notice}
+                        overwrite={overwrite}
+                        onOverwrite={setOverwrite}
+                        onAdd={handleAdd}
+                        onForget={handleForget}
+                        onDownload={handleDownload}
+                    />
+                </>
+            )}
             {queueOpen && (
                 <QueueDrawer
                     jobs={jobs}

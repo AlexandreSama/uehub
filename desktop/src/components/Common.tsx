@@ -33,6 +33,15 @@ export function Thumb({
     return <img className={className} src={src} alt="" />;
 }
 
+// Un moteur n'a pas de vignette : sa version, sur le bleu des en-têtes de nœud.
+export function EngineMark({ version }: { version: string }) {
+    return (
+        <div className="thumb engine-mark" aria-hidden="true">
+            UE {version}
+        </div>
+    );
+}
+
 // WebKitGTK refuse d'afficher dans un <img> une adresse thumb:// depuis la page
 // (« Domains, protocols and ports must match »), mais fetch y a droit.
 // On récupère donc les octets et on les affiche via une URL blob:.

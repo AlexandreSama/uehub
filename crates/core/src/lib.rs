@@ -21,7 +21,7 @@ pub use thumbs::ThumbCache;
 pub use recent::RecentProjects;
 pub use engines::{
     Downloaded, EULA_URL, EngineDownload, EngineInstall, InstallProgress, InstalledEngine,
-    UnrealSession, engines_dir, installed_engines,
+    UnrealSession, engine_for, engines_dir, installed_engines, launch_editor, uninstall_engine,
 };
 
 use directories::ProjectDirs;

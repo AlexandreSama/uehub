@@ -4,6 +4,7 @@ mod commands;
 mod notify;
 mod queue;
 mod thumbs;
+mod settings;
 
 use tauri::Manager;
 use uehub_core::{EpicClient, ThumbCache};
@@ -54,6 +55,14 @@ pub fn run() {
             commands::clear_finished,
             commands::recent_projects,
             commands::forget_project,
+            commands::local_engines,
+            commands::available_engines,
+            commands::engines_folder,
+            commands::set_engines_folder,
+            commands::open_eula_page,
+            commands::launch_engine,
+            commands::open_project,
+            commands::remove_engine,
         ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement de l'application");

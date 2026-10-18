@@ -20,13 +20,17 @@ use super::{EngineDownload, net, version_key};
 use crate::{CoreError, Result};
 
 /// L'éditeur, relatif au dossier du moteur : sa présence prouve que l'extraction a marché.
-const EDITOR: &str = "Engine/Binaries/Linux/UnrealEditor";
+pub(super) const EDITOR: &str = "Engine/Binaries/Linux/UnrealEditor";
 
 /// Une fois extrait, le moteur pèse environ 1,8 fois son zip (39,8 Go → ~70 Go pour la 5.8).
 const EXTRACT_RATIO: f64 = 1.8;
 
 /// Sans un octet reçu pendant ce temps, la connexion est considérée comme coupée.
 const STALLED: Duration = Duration::from_secs(60);
+
+/// La marque que uehub laisse dans un moteur qu'il a installé : seuls ceux-là se
+/// désinstallent depuis uehub. Un moteur compilé par toi n'est jamais supprimé.
+const MARKER: &str = ".uehub";
 
 /// Où en est une installation.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -246,6 +250,13 @@ impl EngineInstall {
                 "le zip ne contient pas {EDITOR}"
             )));
         }
+
+        if !self.dir.join(EDITOR).is_file() {
+            return Err(CoreError::Download(format!(
+                "le zip ne contient pas {EDITOR}"
+            )));
+        }
+        tokio::fs::write(self.dir.join(MARKER), &self.version).await?;
         tokio::fs::remove_file(&self.zip).await?;
         Ok(files)
     }
@@ -513,6 +524,57 @@ fn register_engine(ini: &Path, dir: &Path) -> Result<String> {
     Ok(id)
 }
 
+/// Retire `dir` de la section [Installations], sans toucher au reste.
+fn unregister_engine(ini: &Path, dir: &Path) -> Result<()> {
+    let Ok(text) = fs::read_to_string(ini) else {
+        return Ok(());
+    };
+    let mut in_section = false;
+    let kept: Vec<&str> = text
+        .lines()
+        .filter(|line| {
+            let line = line.trim();
+            if line.starts_with('[') {
+                in_section = line.eq_ignore_ascii_case("[Installations]");
+                return true;
+            }
+            let ours = line
+                .split_once('=')
+                .is_some_and(|(_, d)| Path::new(d.trim()) == dir);
+            !(in_section && ours)
+        })
+        .collect();
+    fs::write(ini, kept.join("\n") + "\n")?;
+    Ok(())
+}
+
+/// Désinstalle un moteur installé par uehub : son dossier et sa ligne d'Install.ini.
+pub async fn uninstall_engine(dir: &Path) -> Result<()> {
+    uninstall_from(&install_ini()?, dir).await
+}
+
+async fn uninstall_from(ini: &Path, dir: &Path) -> Result<()> {
+    if !dir.join(MARKER).is_file() {
+        return Err(CoreError::Engine(format!(
+            "{} n'a pas été installé par uehub : supprime-le toi-même si tu en es sûr",
+            dir.display()
+        )));
+    }
+    // 1. On le renomme : c'est instantané, et une suppression interrompue laissera un
+    //    dossier au nom explicite plutôt qu'un moteur à moitié vide encore enregistré.
+    let name = dir.file_name().unwrap_or_default().to_string_lossy();
+    let doomed = dir.with_file_name(format!(".{name}.suppression"));
+    if doomed.exists() {
+        tokio::fs::remove_dir_all(&doomed).await?;
+    }
+    tokio::fs::rename(dir, &doomed).await?;
+    // 2. Plus de ligne dans Install.ini : Unreal et uehub l'oublient.
+    unregister_engine(ini, dir)?;
+    // 3. Le gros du travail : des dizaines de milliers de fichiers.
+    tokio::fs::remove_dir_all(&doomed).await?;
+    Ok(())
+}
+
 /// Un moteur enregistré dans Install.ini.
 pub struct InstalledEngine {
     /// Son identifiant (un GUID), celui que les .uproject peuvent citer
@@ -520,6 +582,8 @@ pub struct InstalledEngine {
     pub dir: PathBuf,
     /// "5.8.3", lu dans Engine/Build/Build.version
     pub version: Option<String>,
+    /// Installé par uehub (il porte sa marque) : uehub peut le désinstaller
+    pub by_uehub: bool,
 }
 
 /// Les moteurs enregistrés dont le dossier existe encore, du plus récent au plus ancien.
@@ -534,6 +598,7 @@ fn installed_in(ini: &Path) -> Vec<InstalledEngine> {
         .filter(|(_, dir)| dir.join("Engine").is_dir())
         .map(|(id, dir)| InstalledEngine {
             version: build_version(&dir),
+            by_uehub: dir.join(MARKER).is_file(),
             id,
             dir,
         })

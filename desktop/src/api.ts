@@ -29,10 +29,13 @@ export interface RecentProject {
     path: string;
     name: string;
     engine: string | null;
+    // La version du moteur installé qui l'ouvrira, ex. "5.4.4"
+    opensWith: string | null;
 }
 
 export interface Progress {
-    phase: "chunks" | "files";
+    // "bytes" : le zip d'un moteur, en octets
+    phase: "chunks" | "files" | "bytes";
     done: number;
     total: number;
 }
@@ -45,7 +48,8 @@ export type JobRequest =
     assetId: string;
     uproject: string;
     overwrite: boolean;
-};
+}
+    | { kind: "installEngine"; version: string; folder: string };
 
 // Où en est un job (Status dans queue.rs).
 export type JobStatus =
@@ -67,6 +71,26 @@ export interface QueueJob {
     progress: Progress | null;
 }
 
+// Un moteur proposé par Epic (AvailableEngine dans commands.rs).
+export interface AvailableEngine {
+    version: string;
+    size: number;
+    date: string | null;
+}
+
+export interface EngineCatalog {
+    eulaAccepted: boolean;
+    engines: AvailableEngine[];
+}
+
+// Un moteur enregistré dans Install.ini.
+export interface LocalEngine {
+    version: string | null;
+    dir: string;
+    // Installé par uehub : on peut le désinstaller d'ici
+    byUehub: boolean;
+}
+
 export const api = {
     session: () => invoke<Account | null>("session"),
     openLoginPage: () => invoke<void>("open_login_page"),
@@ -83,6 +107,15 @@ export const api = {
     recentProjects: () => invoke<RecentProject[]>("recent_projects"),
     forgetProject: (uproject: string) =>
         invoke<void>("forget_project", { uproject }),
+    localEngines: () => invoke<LocalEngine[]>("local_engines"),
+    availableEngines: () => invoke<EngineCatalog>("available_engines"),
+    enginesFolder: () => invoke<string>("engines_folder"),
+    setEnginesFolder: (folder: string) =>
+        invoke<void>("set_engines_folder", { folder }),
+    openEulaPage: () => invoke<void>("open_eula_page"),
+    launchEngine: (dir: string) => invoke<void>("launch_engine", { dir }),
+    openProject: (uproject: string) => invoke<void>("open_project", { uproject }),
+    removeEngine: (dir: string) => invoke<void>("remove_engine", { dir }),
 };
 
 // Rust envoie la file entière à chaque changement. Renvoie de quoi arrêter l'écoute.
@@ -120,13 +153,17 @@ export function formatBytes(bytes: number): string {
 const PHASE: Record<Progress["phase"], string> = {
     chunks: "Morceaux téléchargés",
     files: "Fichiers écrits",
+    bytes: "Téléchargé",
 };
 
-// "Morceaux téléchargés 33 / 112", ou "Préparation…" avant le premier message.
+// "Morceaux téléchargés 33 / 112", "Téléchargé 12,3 Go / 39,8 Go",
+// ou "Préparation…" avant le premier message.
 export function progressText(progress: Progress | null): string {
-    return progress
-        ? `${PHASE[progress.phase]} ${progress.done} / ${progress.total}`
-        : "Préparation…";
+    if (!progress) return "Préparation…";
+    const { phase, done, total } = progress;
+    return phase === "bytes"
+        ? `${PHASE[phase]} ${formatBytes(done)} / ${formatBytes(total)}`
+        : `${PHASE[phase]} ${done} / ${total}`;
 }
 
 // "61 fichiers, 1,2 Go"
@@ -134,9 +171,20 @@ export function summaryText(summary: Summary): string {
     return `${summary.files} fichiers, ${formatBytes(summary.bytes)}`;
 }
 
+const TARGET: Record<JobRequest["kind"], string> = {
+    download: "Téléchargement dans",
+    addToProject: "Ajout à",
+    installEngine: "Installation dans",
+};
+
 // "Ajout à ForestShooter", "Téléchargement dans /home/…/Megascans_Grass"
 export function jobTarget(job: QueueJob): string {
-    return job.request.kind === "addToProject"
-        ? `Ajout à ${job.target}`
-        : `Téléchargement dans ${job.target}`;
+    return `${TARGET[job.request.kind]} ${job.target}`;
 }
+
+// Le verbe du bilan : "Ajouté : Megascans: Grass, 61 fichiers, 1,2 Go"
+export const DONE: Record<JobRequest["kind"], string> = {
+    download: "Téléchargé",
+    addToProject: "Ajouté",
+    installEngine: "Installé",
+};

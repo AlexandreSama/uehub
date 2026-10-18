@@ -9,6 +9,7 @@ use futures::future::{AbortHandle, Abortable};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::Notify;
+use uehub_core::EngineInstall;
 
 use crate::commands::{AppState, ProgressEvent, Summary, run_job};
 use crate::notify;
@@ -33,12 +34,26 @@ pub enum Request {
         uproject: PathBuf,
         overwrite: bool,
     },
+    /// Installer un moteur Unreal précompilé dans `folder/<version>`
+    InstallEngine { version: String, folder: PathBuf },
 }
 
-impl Request {
-    pub fn asset_id(&self) -> &str {
-        match self {
-            Self::Download { asset_id, .. } | Self::AddToProject { asset_id, .. } => asset_id,
+/// Ce qu'un job retiré avant la fin laisse sur le disque.
+pub enum Leftover {
+    /// Le cache de chunks d'une version d'asset
+    Chunks(String),
+    /// Le zip d'un moteur et ce qui en a déjà été extrait
+    Engine { version: String, dir: PathBuf },
+}
+
+impl Leftover {
+    fn of(job: Job) -> Option<Self> {
+        match job.request {
+            Request::InstallEngine { version, folder } => Some(Self::Engine {
+                dir: folder.join(&version),
+                version,
+            }),
+            _ => job.artifact_id.map(Self::Chunks),
         }
     }
 }
@@ -179,11 +194,19 @@ impl Jobs {
         self.list.retain(|j| !j.is_done());
     }
 
-    /// Le cache de cette version sert-il encore à un job pas terminé ?
-    pub fn uses_cache(&self, artifact_id: &str) -> bool {
+    /// Un job pas terminé a-t-il encore besoin de ces fichiers ? Le même asset peut être
+    /// en file pour deux projets, et un moteur retiré peut y être remis aussitôt.
+    pub fn still_needs(&self, leftover: &Leftover) -> bool {
         self.list
             .iter()
-            .any(|j| !j.is_done() && j.artifact_id.as_deref() == Some(artifact_id))
+            .filter(|j| !j.is_done())
+            .any(|j| match (leftover, &j.request) {
+                (Leftover::Chunks(id), _) => j.artifact_id.as_deref() == Some(id.as_str()),
+                (Leftover::Engine { dir, .. }, Request::InstallEngine { version, folder }) => {
+                    folder.join(version) == *dir
+                }
+                (Leftover::Engine { .. }, _) => false,
+            })
     }
 
     fn get_mut(&mut self, id: u64) -> Option<&mut Job> {
@@ -211,8 +234,8 @@ pub struct Queue {
     wake: Notify,
     /// Le job en cours et de quoi l'arrêter
     current: Mutex<Option<(u64, AbortHandle)>>,
-    /// Caches des jobs retirés, vidés par le worker entre deux téléchargements
-    trash: Mutex<Vec<String>>,
+    /// Ce que les jobs retirés ont laissé, supprimé par le worker entre deux jobs
+    trash: Mutex<Vec<Leftover>>,
 }
 
 impl Queue {
@@ -282,15 +305,15 @@ impl Queue {
         self.wake.notify_one();
     }
 
-    /// Retire un job. Si son téléchargement n'était pas fini, son cache part à la corbeille.
+    /// Retire un job. S'il n'était pas fini, ce qu'il a laissé part à la corbeille.
     pub fn remove(&self, id: u64) {
         let Some(job) = self.update(|jobs| jobs.remove(id)) else {
             return;
         };
         if !job.is_done()
-            && let Some(artifact_id) = job.artifact_id
+            && let Some(leftover) = Leftover::of(job)
         {
-            self.trash.lock().unwrap().push(artifact_id);
+            self.trash.lock().unwrap().push(leftover);
         }
         self.abort_if_running(Some(id));
         self.wake.notify_one();
@@ -336,14 +359,20 @@ impl Queue {
         }
     }
 
-    /// Supprime les caches de la corbeille, sauf ceux qu'un autre job utilise encore
-    /// (le même asset peut être en file pour deux projets).
+    /// Vide la corbeille, sauf ce qu'un autre job utilise encore.
     async fn empty_trash(&self) {
         let trash = std::mem::take(&mut *self.trash.lock().unwrap());
-        for artifact_id in trash {
-            let shared = self.jobs.lock().unwrap().uses_cache(&artifact_id);
-            if !shared && let Err(e) = uehub_core::discard_download(&artifact_id).await {
-                eprintln!("cache de {artifact_id} non supprimé : {e}");
+        for leftover in trash {
+            let needed = self.jobs.lock().unwrap().still_needs(&leftover);
+            if needed {
+                continue;
+            }
+            let result = match &leftover {
+                Leftover::Chunks(artifact_id) => uehub_core::discard_download(artifact_id).await,
+                Leftover::Engine { version, dir } => EngineInstall::discard(version, dir).await,
+            };
+            if let Err(e) = result {
+                eprintln!("fichiers d'un job retiré non supprimés : {e}");
             }
         }
     }

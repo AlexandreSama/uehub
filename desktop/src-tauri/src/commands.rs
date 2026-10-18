@@ -3,18 +3,21 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex as StdMutex;
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize, Serializer};
 use tauri::{AppHandle, State};
 use tauri_plugin_opener::OpenerExt;
 use tokio::sync::Mutex;
 use uehub_core::{
-    AssetKind, CoreError, DownloadSummary, EpicClient, FabAsset, LOGIN_URL, PreparedDownload,
-    Progress, ProjectVersion, RecentProjects, UnrealProject, folder_name, parse_version,
-    pick_for_project, pick_version,
+    AssetKind, CoreError, DownloadSummary, Downloaded, EULA_URL, EngineDownload, EngineInstall,
+    EpicClient, FabAsset, InstallProgress, InstalledEngine, LOGIN_URL, PreparedDownload, Progress,
+    ProjectVersion, RecentProjects, UnrealProject, UnrealSession, engine_for, engines_dir,
+    folder_name, installed_engines, launch_editor, parse_version, pick_for_project, pick_version,
 };
 
 use crate::queue::{Job, Queue, Request, Status};
+use crate::settings::Settings;
 
 /// Nombre de chunks téléchargés en parallèle.
 const JOBS: usize = 8;
@@ -110,20 +113,34 @@ pub struct Summary {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RecentProject {
     /// Chemin du fichier .uproject
     path: String,
     name: String,
     /// "5.4", ou absent si la version du projet n'a pas pu être lue
     engine: Option<String>,
+    /// La version du moteur installé qui l'ouvrira ("5.4.4"), s'il y en a un
+    opens_with: Option<String>,
 }
 
 /// L'avancement du job en cours, envoyé avec la file : {"phase":"chunks","done":3,"total":40}
 #[derive(Clone, Serialize)]
 #[serde(tag = "phase", rename_all = "camelCase")]
 pub enum ProgressEvent {
-    Chunks { done: usize, total: usize },
-    Files { done: usize, total: usize },
+    Chunks {
+        done: usize,
+        total: usize,
+    },
+    Files {
+        done: usize,
+        total: usize,
+    },
+    /// Octets du zip d'un moteur
+    Bytes {
+        done: u64,
+        total: u64,
+    },
 }
 
 impl From<Progress> for ProgressEvent {
@@ -133,6 +150,44 @@ impl From<Progress> for ProgressEvent {
             Progress::Files { done, total } => Self::Files { done, total },
         }
     }
+}
+
+impl From<InstallProgress> for ProgressEvent {
+    fn from(p: InstallProgress) -> Self {
+        match p {
+            InstallProgress::Download { done, total } => Self::Bytes { done, total },
+            InstallProgress::Extract { done, total } => Self::Files { done, total },
+        }
+    }
+}
+
+/// Un moteur proposé par Epic. L'adresse de téléchargement reste dans Rust.
+#[derive(Serialize)]
+pub struct AvailableEngine {
+    /// "5.8.3"
+    version: String,
+    /// Taille du zip en octets
+    size: u64,
+    /// Date de mise en ligne : "2026-09-22"
+    date: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EngineCatalog {
+    /// Sans CLUF accepté, Epic ne propose rien : `engines` est vide.
+    eula_accepted: bool,
+    engines: Vec<AvailableEngine>,
+}
+
+/// Un moteur déjà enregistré dans Install.ini.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalEngine {
+    version: Option<String>,
+    dir: String,
+    /// Installé par uehub : l'écran propose de le désinstaller
+    by_uehub: bool,
 }
 
 fn account(client: &EpicClient) -> Account {
@@ -268,6 +323,9 @@ fn plan_add(asset: &FabAsset, uproject: &Path) -> Result<AddPlan> {
 
 /// Exécute un job de la file. Seul le worker l'appelle, un job à la fois.
 pub async fn run_job(state: &AppState, queue: &Queue, job: &Job) -> Result<Summary> {
+    if let Request::InstallEngine { version, folder } = &job.request {
+        return install_engine(state, queue, job.id, version, folder).await;
+    }
     let (prepared, note) = prepare(state, queue, job).await?;
     // Le client est libre : pendant les chunks, la bibliothèque peut se recharger.
     let send = |p: Progress| queue.set_progress(job.id, p.into());
@@ -283,12 +341,9 @@ async fn prepare(
     job: &Job,
 ) -> Result<(PreparedDownload, Option<String>)> {
     let mut client = state.client.lock().await;
-    let asset = state
-        .asset_or_reload(&mut client, job.request.asset_id())
-        .await?;
-
     match &job.request {
-        Request::Download { folder, .. } => {
+        Request::Download { asset_id, folder } => {
+            let asset = state.asset_or_reload(&mut client, asset_id).await?;
             let version = latest_version(&asset)?;
             queue.set_artifact(job.id, &version.artifact_id);
             let out = folder.join(folder_name(&asset.title));
@@ -296,16 +351,99 @@ async fn prepare(
             Ok((prepared, None))
         }
         Request::AddToProject {
+            asset_id,
             uproject,
             overwrite,
-            ..
         } => {
+            let asset = state.asset_or_reload(&mut client, asset_id).await?;
             let plan = plan_add(&asset, uproject)?;
             queue.set_artifact(job.id, &plan.version.artifact_id);
             let prepared = client
                 .prepare_add(&asset, &plan.version, &plan.project, *overwrite)
                 .await?;
             Ok((prepared, plan.note))
+        }
+        Request::InstallEngine { .. } => unreachable!("run_job installe les moteurs à part"),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Installer un moteur
+// ---------------------------------------------------------------------------
+
+/// Une session sur unrealengine.com. Le client n'est verrouillé que le temps
+/// d'obtenir un code d'échange : la bibliothèque reste utilisable pendant l'installation.
+async fn unreal_session(state: &AppState) -> Result<UnrealSession> {
+    let code = state.client.lock().await.exchange_code().await?;
+    Ok(UnrealSession::connect(&code).await?)
+}
+
+fn eula_missing() -> Error {
+    Error::Msg("accepte d'abord le CLUF d'Unreal Engine, depuis l'écran Moteurs".into())
+}
+
+/// Télécharge le zip, l'extrait et enregistre le moteur dans Install.ini.
+async fn install_engine(
+    state: &AppState,
+    queue: &Queue,
+    id: u64,
+    version: &str,
+    folder: &Path,
+) -> Result<Summary> {
+    let session = unreal_session(state).await?;
+    if !session.eula_accepted().await? {
+        return Err(eula_missing());
+    }
+    let engine = session.engine_download(version).await?;
+    let install = EngineInstall::new(&engine, Some(folder.join(version)))?;
+    let send = |p: InstallProgress| queue.set_progress(id, p.into());
+
+    // Déjà extrait (si l'enregistrement avait échoué) : il ne reste qu'à l'enregistrer.
+    let files = if install.is_installed() {
+        0
+    } else {
+        install.check_space()?;
+        download_zip(state, &install, engine.clone(), &send).await?;
+        install.extract(&send).await?
+    };
+    install.register()?;
+    Ok(Summary {
+        files,
+        bytes: engine.size,
+        dir: install.dir.display().to_string(),
+        note: None,
+    })
+}
+
+/// Télécharge le zip jusqu'au bout : une coupure reprend là où le fichier s'est arrêté,
+/// une adresse expirée (elle ne vaut qu'une heure) est remplacée par une fraîche.
+async fn download_zip(
+    state: &AppState,
+    install: &EngineInstall,
+    mut engine: EngineDownload,
+    send: &(dyn Fn(InstallProgress) + Send + Sync),
+) -> Result<()> {
+    let mut stuck = 0;
+    loop {
+        let before = install.downloaded();
+        match install.download(&engine, send).await? {
+            Downloaded::Complete => return Ok(()),
+            Downloaded::Expired => {
+                engine = unreal_session(state)
+                    .await?
+                    .engine_download(&install.version)
+                    .await?;
+            }
+            Downloaded::Interrupted => tokio::time::sleep(Duration::from_secs(2)).await,
+        }
+        // Trois essais de suite sans un octet de plus : on abandonne, « Réessayer » reprendra.
+        stuck = if install.downloaded() > before {
+            0
+        } else {
+            stuck + 1
+        };
+        if stuck >= 3 {
+            return Err(Error::Msg("le téléchargement n'avance plus".into()));
         }
     }
 }
@@ -328,8 +466,12 @@ pub async fn session(state: State<'_, AppState>) -> Result<Option<Account>> {
 /// Ouvre la page de connexion Epic dans le navigateur par défaut.
 #[tauri::command]
 pub fn open_login_page(app: AppHandle) -> Result<()> {
+    open_in_browser(&app, LOGIN_URL)
+}
+
+fn open_in_browser(app: &AppHandle, url: &str) -> Result<()> {
     app.opener()
-        .open_url(LOGIN_URL, None::<&str>)
+        .open_url(url, None::<&str>)
         .map_err(|e| Error::Msg(format!("impossible d'ouvrir le navigateur : {e}")))
 }
 
@@ -369,27 +511,13 @@ pub fn enqueue(
     queue: State<'_, Queue>,
     request: Request,
 ) -> Result<()> {
-    let asset = state.asset(request.asset_id())?;
-    let target = match &request {
-        Request::Download { folder, .. } => {
-            latest_version(&asset)?;
-            folder.join(folder_name(&asset.title)).display().to_string()
-        }
-        Request::AddToProject { uproject, .. } => {
-            let plan = plan_add(&asset, uproject)?;
-            // Le projet passe en tête des récents dès qu'il entre dans la file.
-            if let Ok(mut recent) = RecentProjects::load() {
-                let _ = recent.remember(&plan.project.uproject);
-            }
-            plan.project.name
-        }
-    };
+    let (title, thumbnail, target) = describe(&state, &request)?;
     // L'id et l'état définitifs sont fixés par la file.
     let job = Job {
         id: 0,
         request,
-        title: asset.title.clone(),
-        thumbnail: thumbnail(&asset),
+        title,
+        thumbnail,
         target,
         status: Status::Waiting,
         artifact_id: None,
@@ -397,6 +525,45 @@ pub fn enqueue(
         progress: None,
     };
     queue.add(job).map_err(Error::Msg)
+}
+
+/// Vérifie une demande et renvoie ce que la file affiche : titre, vignette et cible.
+fn describe(state: &AppState, request: &Request) -> Result<(String, Option<String>, String)> {
+    match request {
+        Request::Download { asset_id, folder } => {
+            let asset = state.asset(asset_id)?;
+            latest_version(&asset)?;
+            let target = folder.join(folder_name(&asset.title));
+            Ok((
+                asset.title.clone(),
+                thumbnail(&asset),
+                target.display().to_string(),
+            ))
+        }
+        Request::AddToProject {
+            asset_id, uproject, ..
+        } => {
+            let asset = state.asset(asset_id)?;
+            let plan = plan_add(&asset, uproject)?;
+            // Le projet passe en tête des récents dès qu'il entre dans la file.
+            if let Ok(mut recent) = RecentProjects::load() {
+                let _ = recent.remember(&plan.project.uproject);
+            }
+            Ok((asset.title.clone(), thumbnail(&asset), plan.project.name))
+        }
+        Request::InstallEngine { version, folder } => {
+            let dir = folder.join(version);
+            if EngineInstall::is_installed_in(version, &dir) {
+                return Err(Error::Msg(format!(
+                    "UE {version} est déjà installé dans {}",
+                    dir.display()
+                )));
+            }
+            EngineInstall::check_dir(version, &dir)?;
+            let title = format!("Unreal Engine {version}");
+            Ok((title, None, dir.display().to_string()))
+        }
+    }
 }
 
 /// La file telle qu'elle est maintenant. Ensuite, l'interface suit l'événement "queue".
@@ -431,6 +598,116 @@ pub fn clear_finished(queue: State<'_, Queue>) {
 }
 
 // ---------------------------------------------------------------------------
+// Moteurs
+// ---------------------------------------------------------------------------
+
+/// Les moteurs enregistrés dans Install.ini, du plus récent au plus ancien.
+#[tauri::command]
+pub fn local_engines() -> Result<Vec<LocalEngine>> {
+    let engines = installed_engines()?
+        .into_iter()
+        .map(|e| LocalEngine {
+            version: e.version,
+            dir: e.dir.display().to_string(),
+            by_uehub: e.by_uehub,
+        })
+        .collect();
+    Ok(engines)
+}
+
+/// Ce qu'Epic propose pour Linux, du plus récent au plus ancien.
+#[tauri::command]
+pub async fn available_engines(state: State<'_, AppState>) -> Result<EngineCatalog> {
+    let session = unreal_session(&state).await?;
+    if !session.eula_accepted().await? {
+        return Ok(EngineCatalog {
+            eula_accepted: false,
+            engines: Vec::new(),
+        });
+    }
+    let engines = session
+        .engine_downloads()
+        .await?
+        .into_iter()
+        .map(|e| AvailableEngine {
+            date: e
+                .created_at
+                .as_deref()
+                .and_then(|d| d.get(..10))
+                .map(String::from),
+            version: e.version,
+            size: e.size,
+        })
+        .collect();
+    Ok(EngineCatalog {
+        eula_accepted: true,
+        engines,
+    })
+}
+
+/// Le dossier où ranger les moteurs : celui que tu as choisi, sinon ~/UnrealEngine.
+#[tauri::command]
+pub fn engines_folder(app: AppHandle) -> Result<String> {
+    let folder = match Settings::load(&app).engines_folder {
+        Some(folder) => folder,
+        None => engines_dir()?,
+    };
+    Ok(folder.display().to_string())
+}
+
+/// Retient le dossier des moteurs pour les prochains lancements.
+#[tauri::command]
+pub fn set_engines_folder(app: AppHandle, folder: PathBuf) -> Result<()> {
+    let mut settings = Settings::load(&app);
+    settings.engines_folder = Some(folder);
+    settings
+        .save(&app)
+        .map_err(|e| Error::Msg(format!("réglages non enregistrés : {e}")))
+}
+
+/// Le moteur enregistré dans ce dossier. L'interface ne désigne un moteur que par
+/// son dossier : on vérifie qu'il est bien dans Install.ini avant d'y toucher.
+fn registered_engine(dir: &Path) -> Result<InstalledEngine> {
+    installed_engines()?
+        .into_iter()
+        .find(|e| e.dir == dir)
+        .ok_or_else(|| Error::Msg(format!("aucun moteur enregistré dans {}", dir.display())))
+}
+
+/// Lance l'éditeur d'un moteur installé, sans projet.
+#[tauri::command]
+pub fn launch_engine(dir: PathBuf) -> Result<()> {
+    Ok(launch_editor(&registered_engine(&dir)?, None)?)
+}
+
+/// Ouvre un projet avec le moteur installé de sa version.
+#[tauri::command]
+pub fn open_project(uproject: PathBuf) -> Result<()> {
+    let project = UnrealProject::open(&uproject)?;
+    let installed = installed_engines()?;
+    let engine = engine_for(&installed, &project).ok_or_else(|| {
+        let version = project.engine_version().unwrap_or_else(|| "?".into());
+        Error::Msg(format!(
+            "UE {version} n'est pas installé : installe-le depuis l'écran Moteurs"
+        ))
+    })?;
+    Ok(launch_editor(engine, Some(&project.uproject))?)
+}
+
+/// Désinstalle un moteur installé par uehub : son dossier, puis sa ligne d'Install.ini.
+#[tauri::command]
+pub async fn remove_engine(dir: PathBuf) -> Result<()> {
+    let engine = registered_engine(&dir)?;
+    Ok(uehub_core::uninstall_engine(&engine.dir).await?)
+}
+
+/// Ouvre la page du CLUF d'Unreal Engine dans le navigateur par défaut.
+#[tauri::command]
+pub fn open_eula_page(app: AppHandle) -> Result<()> {
+    open_in_browser(&app, EULA_URL)
+}
+
+// ---------------------------------------------------------------------------
 // Projets récents
 // ---------------------------------------------------------------------------
 
@@ -438,14 +715,17 @@ pub fn clear_finished(queue: State<'_, Queue>) {
 #[tauri::command]
 pub fn recent_projects() -> Result<Vec<RecentProject>> {
     let recent = RecentProjects::load()?;
+    let installed = installed_engines().unwrap_or_default();
     let projects = recent
         .paths()
         .iter()
         .filter_map(|path| UnrealProject::open(path).ok())
         .map(|p| RecentProject {
+            opens_with: engine_for(&installed, &p)
+                .map(|e| e.version.clone().unwrap_or_else(|| "?".into())),
             path: p.uproject.display().to_string(),
+            engine: p.engine_version(),
             name: p.name,
-            engine: p.engine.map(|(major, minor)| format!("{major}.{minor}")),
         })
         .collect();
     Ok(projects)

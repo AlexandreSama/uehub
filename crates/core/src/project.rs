@@ -19,6 +19,8 @@ pub struct UnrealProject {
     pub name: String,
     /// Version du moteur, ex. (5, 4). `None` si on n'a pas pu la déterminer.
     pub engine: Option<(u32, u32)>,
+    /// Le champ EngineAssociation tel quel : "5.4", "{GUID}" ou ""
+    pub association: String,
 }
 
 impl UnrealProject {
@@ -55,6 +57,7 @@ impl UnrealProject {
             dir,
             name,
             engine,
+            association: association.to_string(),
         })
     }
 

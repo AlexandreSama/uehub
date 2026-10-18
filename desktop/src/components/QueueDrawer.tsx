@@ -1,5 +1,5 @@
 import { jobTarget, progressText, summaryText, type QueueJob } from "../api";
-import { ProgressBar, Thumb } from "./Common";
+import {EngineMark, ProgressBar, Thumb} from "./Common";
 
 interface Props {
   jobs: QueueJob[];
@@ -41,7 +41,11 @@ export default function QueueDrawer(props: Props) {
             const state = job.status.state;
             return (
               <li key={job.id} className={`queue-item ${state}`}>
-                <Thumb url={job.thumbnail} />
+                {job.request.kind === "installEngine" ? (
+                    <EngineMark version={job.request.version} />
+                ) : (
+                    <Thumb url={job.thumbnail} />
+                )}
                 <div className="queue-what">
                   <span className="queue-title">{job.title}</span>
                   <span className="muted" title={job.target}>

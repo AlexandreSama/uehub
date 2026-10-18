@@ -1,4 +1,4 @@
-import { progressText, summaryText, type QueueJob } from "../api";
+import {progressText, summaryText, type QueueJob, DONE} from "../api";
 import { ProgressBar } from "./Common";
 
 interface Props {
@@ -61,8 +61,7 @@ function LastResult({ job }: { job: QueueJob }) {
         );
     if (job.status.state !== "done") return null;
 
-    const verb = job.request.kind === "addToProject" ? "Ajouté" : "Téléchargé";
     const { summary } = job.status;
-    const text = `${verb} : ${job.title}, ${summaryText(summary)}`;
+    const text = `${DONE[job.request.kind]} : ${job.title}, ${summaryText(summary)}`;
     return <span>{summary.note ? `${text}. ${summary.note}` : text}</span>;
 }
