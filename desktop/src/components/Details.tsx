@@ -1,10 +1,12 @@
 import { KIND_LABEL, type Asset, type RecentProject } from "../api";
 import { KindPin, Thumb } from "./Common";
+import { useEffect, useRef } from "react";
 
 interface Props {
     asset: Asset | null;
     recent: RecentProject[];
-    busy: boolean;
+    // Pourquoi la file a refusé la dernière demande, s'il y a lieu
+    notice: string | null;
     overwrite: boolean;
     onOverwrite: (value: boolean) => void;
     // `null` : ouvrir la boîte de dialogue pour choisir le projet
@@ -14,8 +16,14 @@ interface Props {
 }
 
 export default function Details(props: Props) {
-    const { asset, recent, busy, overwrite, onOverwrite } = props;
+    const { asset, recent, notice, overwrite, onOverwrite } = props;
     const { onAdd, onForget, onDownload } = props;
+    const noticeRef = useRef<HTMLParagraphElement>(null);
+
+    // Le message s'affiche sous les boutons : on le fait défiler à l'écran s'il le faut.
+    useEffect(() => {
+        noticeRef.current?.scrollIntoView({ block: "nearest" });
+    }, [notice]);
 
     if (!asset)
         return (
@@ -57,7 +65,6 @@ export default function Details(props: Props) {
                                     <button
                                         className="project"
                                         title={p.path}
-                                        disabled={busy}
                                         onClick={() => onAdd(p.path)}
                                     >
                                         <span className="exec" aria-hidden="true" />
@@ -78,7 +85,6 @@ export default function Details(props: Props) {
                     )}
                     <button
                         className={recent.length > 0 ? "" : "primary"}
-                        disabled={busy}
                         onClick={() => onAdd(null)}
                     >
                         {recent.length > 0
@@ -96,9 +102,12 @@ export default function Details(props: Props) {
                 </section>
             )}
 
-            <button disabled={busy} onClick={onDownload}>
-                Télécharger dans un dossier…
-            </button>
+            <button onClick={onDownload}>Télécharger dans un dossier…</button>
+            {notice && (
+                <p ref={noticeRef} className="error" role="alert">
+                    {notice}
+                </p>
+            )}
         </aside>
     );
 }

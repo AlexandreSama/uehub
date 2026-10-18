@@ -1,12 +1,14 @@
 //! L'application Tauri : la fenêtre, les plugins et les commandes appelées par React.
 
 mod commands;
+mod queue;
 mod thumbs;
 
 use tauri::Manager;
 use uehub_core::{EpicClient, ThumbCache};
 
 use commands::AppState;
+use queue::Queue;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -18,6 +20,9 @@ pub fn run() {
             let client = EpicClient::new()?;
             app.manage(AppState::new(client));
             app.manage(ThumbCache::new()?);
+            // La file enregistrée revient en pause ; le worker attend qu'on la relance.
+            app.manage(Queue::load(app.handle().clone())?);
+            tauri::async_runtime::spawn(queue::worker(app.handle().clone()));
             Ok(())
         })
         // Chaque <img src="thumb://…"> arrive ici. On répond depuis une tâche à part
@@ -35,9 +40,13 @@ pub fn run() {
             commands::login,
             commands::logout,
             commands::library,
-            commands::download,
-            commands::add_to_project,
-            commands::cancel_job,
+            commands::enqueue,
+            commands::jobs,
+            commands::pause_job,
+            commands::resume_job,
+            commands::remove_job,
+            commands::resume_all,
+            commands::clear_finished,
             commands::recent_projects,
             commands::forget_project,
         ])

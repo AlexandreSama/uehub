@@ -1,6 +1,6 @@
 // Petits éléments réutilisés : la vignette et le « pin » coloré qui code le type d'asset.
 import { useEffect, useRef, useState } from "react";
-import { thumbnailSrc, type AssetKind } from "../api";
+import { thumbnailSrc, type AssetKind, type Progress } from "../api";
 
 export function Thumb({
                           url,
@@ -63,4 +63,20 @@ function useThumbnail(url: string | null): string | null {
 // Les couleurs reprennent celles des pins de Blueprint d'Unreal.
 export function KindPin({ kind }: { kind: AssetKind }) {
     return <span className={`pin pin-${kind}`} aria-hidden="true" />;
+}
+
+export function ProgressBar({ progress }: { progress: Progress | null }) {
+    const ratio =
+        progress && progress.total > 0 ? progress.done / progress.total : 0;
+    return (
+        <div
+            className="bar"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={progress?.total ?? 0}
+            aria-valuenow={progress?.done ?? 0}
+        >
+            <div style={{ width: `${ratio * 100}%` }} />
+        </div>
+    );
 }

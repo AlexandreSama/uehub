@@ -1,19 +1,20 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
     api,
-    formatBytes,
+    onQueueChange,
     type Account,
     type Asset,
-    type Progress,
+    type JobRequest,
+    type QueueJob,
     type RecentProject,
-    type Summary,
 } from "./api";
 import Login from "./components/Login";
 import TopBar, { type Filter } from "./components/TopBar";
 import AssetGrid from "./components/AssetGrid";
 import Details from "./components/Details";
-import StatusBar, { type Job, type Status } from "./components/StatusBar";
+import QueueBar from "./components/QueueBar";
+import QueueDrawer from "./components/QueueDrawer";
 
 type Screen = "starting" | "login" | "loading" | "library";
 
@@ -26,11 +27,11 @@ export default function App() {
     const [query, setQuery] = useState("");
     const [filter, setFilter] = useState<Filter>("all");
     const [overwrite, setOverwrite] = useState(false);
-    const [job, setJob] = useState<Job | null>(null);
-    const [status, setStatus] = useState<Status | null>(null);
     const [recent, setRecent] = useState<RecentProject[]>([]);
-    // Vrai si l'utilisateur a cliqué sur Annuler pendant le téléchargement en cours.
-    const cancelRequested = useRef(false);
+    const [jobs, setJobs] = useState<QueueJob[]>([]);
+    const [queueOpen, setQueueOpen] = useState(false);
+    // Refus de la file (déjà en file, version introuvable…), affiché sous les boutons.
+    const [notice, setNotice] = useState<string | null>(null);
 
     async function loadRecent() {
         try {
@@ -72,6 +73,15 @@ export default function App() {
         };
     }, []);
 
+    // La file vit dans Rust : on la lit une fois, puis on suit ses changements.
+    useEffect(() => {
+        const stop = onQueueChange(setJobs);
+        api.jobs().then(setJobs);
+        return () => {
+            stop.then((unlisten) => unlisten());
+        };
+    }, []);
+
     async function handleLogin(code: string) {
         setAccount(await api.login(code));
         await loadLibrary();
@@ -82,7 +92,7 @@ export default function App() {
         setAccount(null);
         setAssets([]);
         setSelectedId(null);
-        setStatus(null);
+        setNotice(null);
         setScreen("login");
     }
 
@@ -98,34 +108,18 @@ export default function App() {
     // Le détail suit la grille : un asset masqué par la recherche n'y reste pas affiché.
     const selected = visible.find((a) => a.id === selectedId) ?? null;
 
-    // Lance une action longue en suivant sa progression dans la barre du bas.
-    async function run(
-        asset: Asset,
-        verb: string,
-        action: (onProgress: (p: Progress) => void) => Promise<Summary>,
-    ) {
-        cancelRequested.current = false;
-        setStatus(null);
-        setJob({ title: asset.title, progress: null, cancelling: false });
-        try {
-            const s = await action((progress) =>
-                setJob((job) => job && { ...job, progress }),
-            );
-            const text = `${verb} : ${s.files} fichiers, ${formatBytes(s.bytes)} dans ${s.dir}`;
-            setStatus({ tone: "ok", text: s.note ? `${text}. ${s.note}` : text });
-        } catch (e) {
-            // Une annulation demandée n'est pas une erreur : pas de rouge.
-            const tone = cancelRequested.current ? "ok" : "error";
-            setStatus({ tone, text: String(e) });
-        } finally {
-            setJob(null);
-        }
+    function handleSelect(id: string) {
+        setSelectedId(id);
+        setNotice(null);
     }
 
-    async function handleCancel() {
-        cancelRequested.current = true;
-        setJob((job) => job && { ...job, cancelling: true });
-        await api.cancelJob();
+    async function enqueue(request: JobRequest) {
+        try {
+            await api.enqueue(request);
+            setNotice(null);
+        } catch (e) {
+            setNotice(String(e));
+        }
     }
 
     async function handleDownload() {
@@ -135,9 +129,7 @@ export default function App() {
             title: "Dossier où ranger l'asset",
         });
         if (!folder) return;
-        await run(selected, "Téléchargé", (onProgress) =>
-            api.download(selected.id, folder, onProgress),
-        );
+        await enqueue({ kind: "download", assetId: selected.id, folder });
     }
 
     // `path` vient de la liste des projets récents ; sinon on demande le projet.
@@ -150,9 +142,12 @@ export default function App() {
                 filters: [{ name: "Projet Unreal", extensions: ["uproject"] }],
             }));
         if (!uproject) return;
-        await run(selected, "Ajouté", (onProgress) =>
-            api.addToProject(selected.id, uproject, overwrite, onProgress),
-        );
+        await enqueue({
+            kind: "addToProject",
+            assetId: selected.id,
+            uproject,
+            overwrite,
+        });
         // Rust a mis ce projet en tête de liste : on recharge.
         await loadRecent();
     }
@@ -183,19 +178,34 @@ export default function App() {
                 onRetry={loadLibrary}
                 assets={visible}
                 selectedId={selectedId}
-                onSelect={setSelectedId}
+                onSelect={handleSelect}
             />
             <Details
                 asset={selected}
                 recent={recent}
-                busy={job !== null}
+                notice={notice}
                 overwrite={overwrite}
                 onOverwrite={setOverwrite}
                 onAdd={handleAdd}
                 onForget={handleForget}
                 onDownload={handleDownload}
             />
-            <StatusBar job={job} status={status} onCancel={handleCancel} />
+            {queueOpen && (
+                <QueueDrawer
+                    jobs={jobs}
+                    onPause={(id) => void api.pauseJob(id)}
+                    onResume={(id) => void api.resumeJob(id)}
+                    onRemove={(id) => void api.removeJob(id)}
+                    onResumeAll={() => void api.resumeAll()}
+                    onClearFinished={() => void api.clearFinished()}
+                />
+            )}
+            <QueueBar
+                jobs={jobs}
+                open={queueOpen}
+                onToggle={() => setQueueOpen(!queueOpen)}
+                onResumeAll={() => void api.resumeAll()}
+            />
         </div>
     );
 }

@@ -222,6 +222,18 @@ impl EpicClient {
     }
 }
 
+/// Jette les chunks gardés pour une version d'asset dont on abandonne le téléchargement.
+pub async fn discard_download(artifact_id: &str) -> Result<()> {
+    // Un identifiant qui ressemble à un chemin (`..`, `/`) ne doit rien supprimer d'autre.
+    if artifact_id.is_empty() || artifact_id.contains(['/', '\\']) || artifact_id.starts_with('.') {
+        return Ok(());
+    }
+    match tokio::fs::remove_dir_all(cache_dir()?.join(artifact_id)).await {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e.into()),
+        _ => Ok(()),
+    }
+}
+
 /// ~/.cache/uehub/chunks : les chunks en cours, gardés tant que l'asset n'est pas complet.
 fn cache_dir() -> Result<PathBuf> {
     let dirs = ProjectDirs::from("", "", "uehub").ok_or(CoreError::NoDataDir)?;

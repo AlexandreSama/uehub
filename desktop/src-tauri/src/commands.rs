@@ -1,32 +1,30 @@
 //! Les commandes que l'interface React appelle avec `invoke`.
 //! Elles traduisent les types du core en JSON simple pour TypeScript.
 
-use std::future::Future;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex as StdMutex;
 
-use futures::future::{AbortHandle, Abortable, Aborted};
-use serde::{Serialize, Serializer};
-use tauri::ipc::Channel;
+use serde::{Deserialize, Serialize, Serializer};
 use tauri::{AppHandle, State};
 use tauri_plugin_opener::OpenerExt;
 use tokio::sync::Mutex;
 use uehub_core::{
     AssetKind, CoreError, DownloadSummary, EpicClient, FabAsset, LOGIN_URL, Progress,
-    RecentProjects, UnrealProject, folder_name, parse_version, pick_for_project, pick_version,
+    ProjectVersion, RecentProjects, UnrealProject, folder_name, parse_version, pick_for_project,
+    pick_version,
 };
+
+use crate::queue::{Job, Queue, Request, Status};
 
 /// Nombre de chunks téléchargés en parallèle.
 const JOBS: usize = 8;
 
 /// L'état partagé par toutes les commandes.
 pub struct AppState {
-    /// Verrou asynchrone : un téléchargement le garde jusqu'à la fin.
+    /// Verrou asynchrone : le téléchargement en cours le garde jusqu'à la fin.
     client: Mutex<EpicClient>,
     /// La dernière bibliothèque chargée, pour retrouver un asset par son id.
     library: StdMutex<Vec<FabAsset>>,
-    /// De quoi arrêter le téléchargement en cours, s'il y en a un.
-    job: StdMutex<Option<AbortHandle>>,
 }
 
 impl AppState {
@@ -34,7 +32,6 @@ impl AppState {
         Self {
             client: Mutex::new(client),
             library: StdMutex::new(Vec::new()),
-            job: StdMutex::new(None),
         }
     }
 
@@ -46,6 +43,17 @@ impl AppState {
             .find(|a| a.asset_id == id)
             .cloned()
             .ok_or_else(|| Error::Msg("asset introuvable : recharge la bibliothèque".into()))
+    }
+
+    /// Comme `asset`, mais recharge la bibliothèque si elle ne contient pas l'asset
+    /// (par exemple si tu reprends la file avant qu'elle ait fini de charger).
+    async fn asset_or_reload(&self, client: &mut EpicClient, id: &str) -> Result<FabAsset> {
+        if let Ok(asset) = self.asset(id) {
+            return Ok(asset);
+        }
+        let assets = client.fab_library().await?;
+        *self.library.lock().unwrap() = assets;
+        self.asset(id)
     }
 }
 
@@ -91,7 +99,8 @@ pub struct Asset {
     engines: Vec<String>,
 }
 
-#[derive(Serialize)]
+/// Le bilan d'un job terminé. Il est aussi enregistré dans la file.
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Summary {
     files: usize,
     bytes: u64,
@@ -109,7 +118,7 @@ pub struct RecentProject {
     engine: Option<String>,
 }
 
-/// Une étape de progression, envoyée sur un `Channel` : {"phase":"chunks","done":3,"total":40}
+/// L'avancement du job en cours, envoyé avec la file : {"phase":"chunks","done":3,"total":40}
 #[derive(Clone, Serialize)]
 #[serde(tag = "phase", rename_all = "camelCase")]
 pub enum ProgressEvent {
@@ -133,6 +142,16 @@ fn account(client: &EpicClient) -> Account {
     }
 }
 
+/// L'image « Thumbnail » de l'asset, sinon la première.
+fn thumbnail(asset: &FabAsset) -> Option<String> {
+    asset
+        .images
+        .iter()
+        .find(|i| i.type_field == "Thumbnail")
+        .or_else(|| asset.images.first())
+        .map(|i| i.url.clone())
+}
+
 impl From<&FabAsset> for Asset {
     fn from(a: &FabAsset) -> Self {
         let mut engines: Vec<(u32, u32)> = a
@@ -153,12 +172,7 @@ impl From<&FabAsset> for Asset {
                 AssetKind::CompleteProject => "project",
             },
             category: a.categories.first().and_then(|c| c.name.clone()),
-            thumbnail: a
-                .images
-                .iter()
-                .find(|i| i.type_field == "Thumbnail")
-                .or_else(|| a.images.first())
-                .map(|i| i.url.clone()),
+            thumbnail: thumbnail(a),
             engines: engines
                 .iter()
                 .map(|(major, minor)| format!("{major}.{minor}"))
@@ -176,26 +190,94 @@ fn summary(done: DownloadSummary, note: Option<String>) -> Summary {
     }
 }
 
-/// Exécute `work` en le rendant annulable par `cancel_job`.
-/// Annuler abandonne le futur : les chunks déjà reçus restent dans le cache.
-async fn cancellable<T>(state: &AppState, work: impl Future<Output = Result<T>>) -> Result<T> {
-    let (handle, registration) = AbortHandle::new_pair();
-    {
-        let mut job = state.job.lock().unwrap();
-        if job.is_some() {
-            return Err(Error::Msg("un téléchargement est déjà en cours".into()));
-        }
-        *job = Some(handle);
+// ---------------------------------------------------------------------------
+// Choisir la version à installer
+// ---------------------------------------------------------------------------
+
+/// La version la plus récente, pour un téléchargement dans un dossier.
+fn latest_version(asset: &FabAsset) -> Result<ProjectVersion> {
+    pick_version(asset, None)
+        .cloned()
+        .ok_or_else(|| Error::Msg("aucune version téléchargeable".into()))
+}
+
+/// Tout ce qu'il faut pour ajouter un asset à un projet.
+struct AddPlan {
+    project: UnrealProject,
+    version: ProjectVersion,
+    /// Remarque à afficher quand la version exacte n'existait pas
+    note: Option<String>,
+}
+
+/// Lit le projet et choisit la version de l'asset qui correspond à son moteur.
+fn plan_add(asset: &FabAsset, uproject: &Path) -> Result<AddPlan> {
+    let project = UnrealProject::open(uproject)?;
+    let (major, minor) = project.engine.ok_or_else(|| {
+        Error::Msg(format!(
+            "version d'Unreal du projet {} introuvable",
+            project.name
+        ))
+    })?;
+    let (version, exact) = pick_for_project(asset, (major, minor)).ok_or_else(|| {
+        Error::Msg(format!(
+            "« {} » n'existe pas pour UE {major}.{minor} ni pour une version plus ancienne",
+            asset.title
+        ))
+    })?;
+    if !exact && AssetKind::of(asset) == AssetKind::Plugin {
+        return Err(Error::Msg(format!(
+            "ce plugin n'existe pas pour UE {major}.{minor}"
+        )));
     }
+    let note = (!exact).then(|| {
+        let used = version.engine_versions.last().map_or("?", String::as_str);
+        format!(
+            "Pas de version pour UE {major}.{minor} : celle pour {} a été installée, Unreal la convertira.",
+            used.replace('_', " ")
+        )
+    });
+    Ok(AddPlan {
+        version: version.clone(),
+        project,
+        note,
+    })
+}
 
-    let result = Abortable::new(work, registration).await;
-    *state.job.lock().unwrap() = None;
+/// Exécute un job de la file. Seul le worker l'appelle, un job à la fois.
+pub async fn run_job(state: &AppState, queue: &Queue, job: &Job) -> Result<Summary> {
+    let mut client = state.client.lock().await;
+    let asset = state
+        .asset_or_reload(&mut client, job.request.asset_id())
+        .await?;
+    let send = |p: Progress| queue.set_progress(job.id, p.into());
 
-    match result {
-        Ok(result) => result,
-        Err(Aborted) => Err(Error::Msg(
-            "Téléchargement annulé. Relance-le pour reprendre où il s'est arrêté.".into(),
-        )),
+    match &job.request {
+        Request::Download { folder, .. } => {
+            let version = latest_version(&asset)?;
+            queue.set_artifact(job.id, &version.artifact_id);
+            let out = folder.join(folder_name(&asset.title));
+            let done = client.download(&asset, &version, &out, JOBS, &send).await?;
+            Ok(summary(done, None))
+        }
+        Request::AddToProject {
+            uproject,
+            overwrite,
+            ..
+        } => {
+            let plan = plan_add(&asset, uproject)?;
+            queue.set_artifact(job.id, &plan.version.artifact_id);
+            let done = client
+                .add_to_project(
+                    &asset,
+                    &plan.version,
+                    &plan.project,
+                    *overwrite,
+                    JOBS,
+                    &send,
+                )
+                .await?;
+            Ok(summary(done, plan.note))
+        }
     }
 }
 
@@ -230,15 +312,13 @@ pub async fn login(state: State<'_, AppState>, code: String) -> Result<Account> 
 }
 
 #[tauri::command]
-pub async fn logout(state: State<'_, AppState>) -> Result<()> {
+pub async fn logout(state: State<'_, AppState>, queue: State<'_, Queue>) -> Result<()> {
+    // Le téléchargement en cours garde le client : on met la file en pause pour le libérer.
+    queue.pause_all();
     state.library.lock().unwrap().clear();
     state.client.lock().await.logout().await?;
     Ok(())
 }
-
-// ---------------------------------------------------------------------------
-// Bibliothèque et téléchargements
-// ---------------------------------------------------------------------------
 
 #[tauri::command]
 pub async fn library(state: State<'_, AppState>) -> Result<Vec<Asset>> {
@@ -248,94 +328,77 @@ pub async fn library(state: State<'_, AppState>) -> Result<Vec<Asset>> {
     Ok(views)
 }
 
-/// Télécharge la version la plus récente dans `folder/<titre de l'asset>`.
-#[tauri::command]
-pub async fn download(
-    state: State<'_, AppState>,
-    asset_id: String,
-    folder: PathBuf,
-    on_progress: Channel<ProgressEvent>,
-) -> Result<Summary> {
-    let asset = state.asset(&asset_id)?;
-    let version = pick_version(&asset, None)
-        .cloned()
-        .ok_or_else(|| Error::Msg("aucune version téléchargeable".into()))?;
-    let out = folder.join(folder_name(&asset.title));
-    let send = |p: Progress| {
-        let _ = on_progress.send(p.into());
-    };
+// ---------------------------------------------------------------------------
+// File d'attente
+// ---------------------------------------------------------------------------
 
-    cancellable(&state, async {
-        let mut client = state.client.lock().await;
-        let done = client.download(&asset, &version, &out, JOBS, &send).await?;
-        Ok(summary(done, None))
-    })
-        .await
+/// Ajoute une demande à la file. Ce qui ne peut pas marcher (version introuvable…)
+/// est refusé tout de suite, pas au moment du téléchargement.
+#[tauri::command]
+pub fn enqueue(
+    state: State<'_, AppState>,
+    queue: State<'_, Queue>,
+    request: Request,
+) -> Result<()> {
+    let asset = state.asset(request.asset_id())?;
+    let target = match &request {
+        Request::Download { folder, .. } => {
+            latest_version(&asset)?;
+            folder.join(folder_name(&asset.title)).display().to_string()
+        }
+        Request::AddToProject { uproject, .. } => {
+            let plan = plan_add(&asset, uproject)?;
+            // Le projet passe en tête des récents dès qu'il entre dans la file.
+            if let Ok(mut recent) = RecentProjects::load() {
+                let _ = recent.remember(&plan.project.uproject);
+            }
+            plan.project.name
+        }
+    };
+    // L'id et l'état définitifs sont fixés par la file.
+    let job = Job {
+        id: 0,
+        request,
+        title: asset.title.clone(),
+        thumbnail: thumbnail(&asset),
+        target,
+        status: Status::Waiting,
+        artifact_id: None,
+        finished_at: None,
+        progress: None,
+    };
+    queue.add(job).map_err(Error::Msg)
 }
 
-/// Ajoute l'asset au projet, avec la version qui correspond à son moteur.
+/// La file telle qu'elle est maintenant. Ensuite, l'interface suit l'événement "queue".
 #[tauri::command]
-pub async fn add_to_project(
-    state: State<'_, AppState>,
-    asset_id: String,
-    uproject: PathBuf,
-    overwrite: bool,
-    on_progress: Channel<ProgressEvent>,
-) -> Result<Summary> {
-    let asset = state.asset(&asset_id)?;
-    let project = UnrealProject::open(&uproject)?;
-
-    // Le projet passe en tête des récents dès qu'il est valide :
-    // après une annulation, on le retrouve pour relancer.
-    if let Ok(mut recent) = RecentProjects::load() {
-        let _ = recent.remember(&project.uproject);
-    }
-
-    let (major, minor) = project.engine.ok_or_else(|| {
-        Error::Msg(format!(
-            "version d'Unreal du projet {} introuvable",
-            project.name
-        ))
-    })?;
-    let (version, exact) = pick_for_project(&asset, (major, minor)).ok_or_else(|| {
-        Error::Msg(format!(
-            "« {} » n'existe pas pour UE {major}.{minor} ni pour une version plus ancienne",
-            asset.title
-        ))
-    })?;
-    if !exact && AssetKind::of(&asset) == AssetKind::Plugin {
-        return Err(Error::Msg(format!(
-            "ce plugin n'existe pas pour UE {major}.{minor}"
-        )));
-    }
-    let note = (!exact).then(|| {
-        let used = version.engine_versions.last().map_or("?", String::as_str);
-        format!(
-            "Pas de version pour UE {major}.{minor} : celle pour {} a été installée, Unreal la convertira.",
-            used.replace('_', " ")
-        )
-    });
-    let version = version.clone();
-    let send = |p: Progress| {
-        let _ = on_progress.send(p.into());
-    };
-
-    cancellable(&state, async {
-        let mut client = state.client.lock().await;
-        let done = client
-            .add_to_project(&asset, &version, &project, overwrite, JOBS, &send)
-            .await?;
-        Ok(summary(done, note))
-    })
-        .await
+pub fn jobs(queue: State<'_, Queue>) -> Vec<Job> {
+    queue.snapshot()
 }
 
-/// Arrête le téléchargement en cours. Sans effet s'il n'y en a pas.
 #[tauri::command]
-pub fn cancel_job(state: State<'_, AppState>) {
-    if let Some(job) = state.job.lock().unwrap().as_ref() {
-        job.abort();
-    }
+pub fn pause_job(queue: State<'_, Queue>, id: u64) {
+    queue.pause(id);
+}
+
+#[tauri::command]
+pub fn resume_job(queue: State<'_, Queue>, id: u64) {
+    queue.resume(id);
+}
+
+#[tauri::command]
+pub fn remove_job(queue: State<'_, Queue>, id: u64) {
+    queue.remove(id);
+}
+
+#[tauri::command]
+pub fn resume_all(queue: State<'_, Queue>) {
+    queue.resume_all();
+}
+
+#[tauri::command]
+pub fn clear_finished(queue: State<'_, Queue>) {
+    queue.clear_finished();
 }
 
 // ---------------------------------------------------------------------------
