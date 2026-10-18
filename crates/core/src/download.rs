@@ -87,13 +87,24 @@ pub fn folder_name(title: &str) -> String {
         .join("_")
 }
 
-fn newest_engine(version: &ProjectVersion) -> (u32, u32) {
+/// La version d'Unreal la plus récente que vise une version d'asset, ex. (5, 3).
+pub(crate) fn newest_engine(version: &ProjectVersion) -> (u32, u32) {
     version
         .engine_versions
         .iter()
         .filter_map(|v| parse_ue(v))
         .max()
         .unwrap_or((0, 0))
+}
+
+/// Le numéro de build d'une version, pour la plateforme qu'on télécharge : la première,
+/// comme `fab_manifest`.
+pub(crate) fn build_of(version: &ProjectVersion) -> String {
+    version
+        .build_versions
+        .first()
+        .map(|b| b.build_version.clone())
+        .unwrap_or_default()
 }
 
 fn parse_ue(v: &str) -> Option<(u32, u32)> {

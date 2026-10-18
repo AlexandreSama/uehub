@@ -9,10 +9,13 @@ interface Props {
     assets: Asset[];
     selectedId: string | null;
     onSelect: (id: string) => void;
+    // Les assets qui ont une mise à jour dans au moins un projet
+    updates: Set<string>;
 }
 
 export default function AssetList(props: Props) {
-    const { loading, error, onRetry, assets, selectedId, onSelect } = props;
+    const { loading, error, onRetry, assets, updates, selectedId, onSelect } =
+        props;
 
     let body;
     if (loading)
@@ -38,7 +41,12 @@ export default function AssetList(props: Props) {
                         >
                             <Thumb url={asset.thumbnail} />
                             <span className="asset-name">
-                <span className="asset-title">{asset.title}</span>
+                                <span className="asset-title">
+                                      {updates.has(asset.id) && (
+                                          <span className="badge">Mise à jour</span>
+                                      )}
+                                                        {asset.title}
+                                </span>
                                 {asset.category && (
                                     <span className="muted">{asset.category}</span>
                                 )}

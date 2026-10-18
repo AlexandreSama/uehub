@@ -34,6 +34,25 @@ export interface RecentProject {
     opensWith: string | null;
 }
 
+// Un asset que uehub a ajouté à un projet récent (AddedView dans commands.rs).
+export interface AddedAsset {
+    // Le .uproject du projet
+    project: string;
+    assetId: string;
+    // La version d'Unreal visée par la version installée, ex. "5.3"
+    engine: string;
+    // Date de l'ajout, en secondes depuis 1970
+    addedAt: number;
+    files: number;
+    update: AssetUpdate | null;
+}
+
+// Pourquoi le mettre à jour : une nouvelle build de la même version, ou une version
+// plus proche du moteur du projet.
+export type AssetUpdate =
+    | { kind: "newBuild" }
+    | { kind: "closerEngine"; engine: string };
+
 // L'avancement du job en cours (ProgressEvent dans commands.rs).
 export type Progress =
 // Les morceaux d'un asset, et les octets reçus pour les télécharger
@@ -112,6 +131,7 @@ export const api = {
     recentProjects: () => invoke<RecentProject[]>("recent_projects"),
     forgetProject: (uproject: string) =>
         invoke<void>("forget_project", { uproject }),
+    addedAssets: () => invoke<AddedAsset[]>("added_assets"),
     localEngines: () => invoke<LocalEngine[]>("local_engines"),
     availableEngines: () => invoke<EngineCatalog>("available_engines"),
     enginesFolder: () => invoke<string>("engines_folder"),
@@ -282,4 +302,22 @@ export function tilde(path: string): string {
     if (home && (path === home || path.startsWith(`${home}/`)))
         return `~${path.slice(home.length)}`;
     return path;
+}
+
+// Une date notée par uehub, en secondes : le jour sur l'horloge de l'ordinateur.
+const localDay = new Intl.DateTimeFormat("fr-FR", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+});
+
+export function formatSeconds(seconds: number): string {
+    return localDay.format(new Date(seconds * 1000));
+}
+
+// Ce qu'apporte une mise à jour, en une phrase.
+export function updateText(update: AssetUpdate, installed: string): string {
+    return update.kind === "newBuild"
+        ? `Le vendeur a publié une nouvelle build de la version pour ${installed}.`
+        : `Une version pour UE ${update.engine} existe : elle remplacera celle pour ${installed}.`;
 }

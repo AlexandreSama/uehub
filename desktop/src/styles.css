@@ -563,6 +563,25 @@ input::placeholder {
     font-weight: 500;
 }
 
+/* « Mise à jour » devant le titre d'un asset : l'ambre de ce qui attend une action. */
+.badge {
+    display: inline-block;
+    margin-right: 8px;
+    padding: 0 6px;
+    border-radius: 3px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 600;
+    font-stretch: 80%;
+    vertical-align: 1px;
+}
+
+.update-count {
+    color: var(--accent);
+    font-weight: 600;
+}
+
 .asset-name .muted {
     font-size: 12px;
 }

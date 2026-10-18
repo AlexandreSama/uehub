@@ -10,11 +10,11 @@ use tauri::{AppHandle, State};
 use tauri_plugin_opener::OpenerExt;
 use tokio::sync::Mutex;
 use uehub_core::{
-    AssetKind, CoreError, DownloadSummary, Downloaded, EULA_URL, EngineDownload, EngineInstall,
-    EpicClient, FabAsset, InstallProgress, InstalledEngine, LOGIN_URL, PreparedDownload, Progress,
-    ProjectVersion, RecentProjects, UnrealProject, UnrealSession, engine_for, engines_dir,
-    folder_name, installed_engines, launch_editor, parse_version, pick_for_project, pick_version,
-    extracted_size
+    AssetKind, AssetUpdate, CoreError, DownloadSummary, Downloaded, EULA_URL, EngineDownload,
+    EngineInstall, EpicClient, FabAsset, InstallProgress, InstalledEngine, LOGIN_URL,
+    PreparedDownload, Progress, ProjectAssets, ProjectVersion, RecentProjects, UnrealProject,
+    UnrealSession, engine_for, engines_dir, extracted_size, folder_name, installed_engines,
+    launch_editor, parse_version, pick_for_project, pick_version, update_for,
 };
 
 use crate::queue::{Job, Queue, Request, Status};
@@ -123,6 +123,38 @@ pub struct RecentProject {
     engine: Option<String>,
     /// La version du moteur installé qui l'ouvrira ("5.4.4"), s'il y en a un
     opens_with: Option<String>,
+}
+
+/// Un asset que uehub a ajouté à un projet récent, et sa mise à jour s'il y en a une.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AddedView {
+    /// Le .uproject du projet
+    project: String,
+    asset_id: String,
+    /// La version d'Unreal visée par la version installée, ex. "5.3"
+    engine: String,
+    /// Date de l'ajout, en secondes depuis 1970
+    added_at: u64,
+    files: usize,
+    update: Option<UpdateView>,
+}
+
+/// Pourquoi mettre à jour : {"kind":"newBuild"} ou {"kind":"closerEngine","engine":"5.4"}
+#[derive(Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum UpdateView {
+    NewBuild,
+    CloserEngine { engine: String },
+}
+
+impl From<AssetUpdate> for UpdateView {
+    fn from(update: AssetUpdate) -> Self {
+        match update {
+            AssetUpdate::NewBuild => Self::NewBuild,
+            AssetUpdate::CloserEngine(engine) => Self::CloserEngine { engine },
+        }
+    }
 }
 
 /// L'avancement du job en cours, envoyé avec la file :
@@ -742,6 +774,35 @@ pub fn recent_projects() -> Result<Vec<RecentProject>> {
         })
         .collect();
     Ok(projects)
+}
+
+/// Ce que uehub a ajouté aux projets récents, comparé à la bibliothèque chargée. Sans
+/// bibliothèque (pas encore chargée, ou hors ligne), les fiches arrivent sans mise à jour.
+#[tauri::command]
+pub fn added_assets(state: State<'_, AppState>) -> Result<Vec<AddedView>> {
+    let library = state.library.lock().unwrap();
+    let mut views = Vec::new();
+    for path in RecentProjects::load()?.paths() {
+        let Ok(project) = UnrealProject::open(path) else {
+            continue;
+        };
+        for added in ProjectAssets::load(&project.dir).list() {
+            let asset = library.iter().find(|a| a.asset_id == added.asset_id);
+            let update = match (asset, project.engine) {
+                (Some(asset), Some(engine)) => update_for(added, asset, engine),
+                _ => None,
+            };
+            views.push(AddedView {
+                project: project.uproject.display().to_string(),
+                asset_id: added.asset_id.clone(),
+                engine: added.engine.clone(),
+                added_at: added.added_at,
+                files: added.files.len(),
+                update: update.map(UpdateView::from),
+            });
+        }
+    }
+    Ok(views)
 }
 
 #[tauri::command]

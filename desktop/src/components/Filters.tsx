@@ -6,6 +6,9 @@ import { KindPin } from "./Common";
 
 export type KindFilter = "all" | AssetKind;
 
+// Tout, seulement les assets déjà ajoutés à un projet, ou ceux qui ont une mise à jour.
+export type Tracked = "all" | "added" | "updates";
+
 const KINDS: { id: KindFilter; label: string }[] = [
     { id: "all", label: "Tout" },
     { id: "pack", label: "Packs d'assets" },
@@ -25,16 +28,24 @@ interface Props {
     onKind: (kind: KindFilter) => void;
     version: string | null;
     onVersion: (version: string | null) => void;
+    tracked: Tracked;
+    onTracked: (tracked: Tracked) => void;
+    addedCount: number;
+    updateCount: number;
 }
 
 export default function Filters(props: Props) {
     const { assets, versions, recent, kind, onKind, version, onVersion } = props;
+    const { tracked, onTracked, addedCount, updateCount } = props;
+    // Pareil pour le suivi.
+    const track = (t: Tracked) => onTracked(tracked === t ? "all" : t);
     const [allVersions, setAllVersions] = useState(false);
     const newestFirst = [...versions].reverse();
     const shown = allVersions
         ? newestFirst
         : newestFirst.slice(0, FIRST_VERSIONS);
     const projects = recent.filter((p) => p.engine !== null);
+
 
     const count = (k: KindFilter) =>
         k === "all" ? assets.length : assets.filter((a) => a.kind === k).length;
@@ -43,6 +54,30 @@ export default function Filters(props: Props) {
 
     return (
         <aside className="filters" aria-label="Filtres">
+            {addedCount > 0 && (
+                <section>
+                    <h2>Suivi</h2>
+                    <button
+                        className="filter"
+                        aria-pressed={tracked === "updates"}
+                        onClick={() => track("updates")}
+                    >
+                        <span className="filter-label">Mises à jour</span>
+                        <span className={updateCount > 0 ? "update-count" : "muted"}>
+              {updateCount}
+            </span>
+                    </button>
+                    <button
+                        className="filter"
+                        aria-pressed={tracked === "added"}
+                        onClick={() => track("added")}
+                    >
+                        <span className="filter-label">Déjà dans un projet</span>
+                        <span className="muted">{addedCount}</span>
+                    </button>
+                </section>
+            )}
+
             <section>
                 <h2>Type</h2>
                 {KINDS.map((k) => (

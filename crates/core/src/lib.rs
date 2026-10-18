@@ -8,6 +8,7 @@ mod project;
 mod session;
 mod thumbs;
 mod recent;
+mod added;
 
 use std::path::{Path, PathBuf};
 
@@ -24,6 +25,7 @@ pub use engines::{
     UnrealSession, engine_for, engines_dir, extracted_size, free_space, installed_engines,
     launch_editor, uninstall_engine,
 };
+pub use added::{AddedAsset, AssetUpdate, ProjectAssets, update_for};
 
 use directories::ProjectDirs;
 use egs_api::EpicGames;
@@ -218,7 +220,13 @@ impl EpicClient {
                 return Err(CoreError::Conflict(existing.len(), first.to_string()));
             }
         }
-        Ok(self.prepared(plan, version, target))
+        let mut prepared = self.prepared(plan, version, target);
+        // Une fois les fichiers écrits, le projet gardera la fiche de cet ajout.
+        prepared.record = Some(Record {
+            project_dir: project.dir.clone(),
+            added: AddedAsset::new(asset, version),
+        });
+        Ok(prepared)
     }
 
     fn prepared(
@@ -233,6 +241,7 @@ impl EpicClient {
             out_dir,
             // Un clone de reqwest::Client partage les mêmes connexions : il ne coûte rien.
             http: self.http.clone(),
+            record: None,
         }
     }
 
@@ -250,6 +259,33 @@ pub struct PreparedDownload {
     artifact_id: String,
     out_dir: PathBuf,
     http: reqwest::Client,
+    /// Pour un ajout à un projet : la fiche à y laisser une fois fini
+    record: Option<Record>,
+}
+
+/// Ce qu'un ajout à un projet retient, une fois ses fichiers écrits.
+struct Record {
+    project_dir: PathBuf,
+    added: AddedAsset,
+}
+
+impl Record {
+    /// Range la fiche dans le projet. Les fichiers sont déjà là : si la fiche ne s'écrit
+    /// pas, l'ajout reste réussi, on perd seulement le suivi des mises à jour.
+    fn save(&self, plan: &DownloadPlan, out_dir: &Path) {
+        // Un plugin s'écrit dans Plugins/… : les chemins de la fiche partent du projet.
+        let prefix = out_dir
+            .strip_prefix(&self.project_dir)
+            .unwrap_or(Path::new(""));
+        let mut added = self.added.clone();
+        added.files = plan
+            .file_names()
+            .map(|f| prefix.join(f).to_string_lossy().into_owned())
+            .collect();
+        if let Err(e) = ProjectAssets::load(&self.project_dir).record(added) {
+            log::warn!("fiche de « {} » non enregistrée : {e}", self.added.title);
+        }
+    }
 }
 
 impl PreparedDownload {
@@ -266,6 +302,9 @@ impl PreparedDownload {
         self.plan
             .assemble_files(&cache, &self.out_dir, on_progress)
             .await?;
+        if let Some(record) = &self.record {
+            record.save(&self.plan, &self.out_dir);
+        }
         tokio::fs::remove_dir_all(&cache).await?;
 
         Ok(DownloadSummary {

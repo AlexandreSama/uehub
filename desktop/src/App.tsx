@@ -4,6 +4,7 @@ import {
     onQueueChange,
     type Account,
     type Asset,
+    type AddedAsset,
     type QueueJob,
     type RecentProject,
 } from "./api";
@@ -24,6 +25,8 @@ export default function App() {
     const [assets, setAssets] = useState<Asset[]>([]);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [recent, setRecent] = useState<RecentProject[]>([]);
+    // Ce que uehub a ajouté aux projets récents, avec les mises à jour
+    const [added, setAdded] = useState<AddedAsset[]>([]);
     const [jobs, setJobs] = useState<QueueJob[]>([]);
     const [queueOpen, setQueueOpen] = useState(false);
     const rates = useTransferRates(jobs);
@@ -36,6 +39,20 @@ export default function App() {
         }
     }
 
+    async function loadAdded() {
+        try {
+            setAdded(await api.addedAssets());
+        } catch {
+            setAdded([]);
+        }
+    }
+
+    // Les projets récents et leurs fiches : retirer un projet retire aussi ses fiches.
+    async function loadProjects() {
+        await loadRecent();
+        await loadAdded();
+    }
+
     async function loadLibrary() {
         void loadRecent();
         setScreen("loading");
@@ -46,7 +63,17 @@ export default function App() {
             setLoadError(String(e));
         }
         setScreen("library");
+        // Les mises à jour se lisent dans la bibliothèque : on compare une fois qu'elle est là.
+        void loadAdded();
     }
+
+    // Chaque ajout terminé laisse une fiche dans son projet : on relit les fiches.
+    const addsDone = jobs.filter(
+        (j) => j.request.kind === "addToProject" && j.status.state === "done",
+    ).length;
+    useEffect(() => {
+        void loadAdded();
+    }, [addsDone]);
 
     // Au démarrage : reprendre la session enregistrée, sinon afficher la connexion.
     useEffect(() => {
@@ -86,6 +113,7 @@ export default function App() {
         await api.logout();
         setAccount(null);
         setAssets([]);
+        setAdded([]);
         setView("library");
         setScreen("login");
     }
@@ -111,7 +139,8 @@ export default function App() {
                     onRetry={loadLibrary}
                     assets={assets}
                     recent={recent}
-                    onRecentChange={loadRecent}
+                    added={added}
+                    onProjectsChange={loadProjects}
                 />
             )}
             {queueOpen && (

@@ -6,6 +6,9 @@ import {
     KIND_LABEL,
     type Asset,
     type RecentProject,
+    formatSeconds,
+    updateText,
+    type AddedAsset,
 } from "../api";
 import { KindPin, Thumb } from "./Common";
 
@@ -20,8 +23,11 @@ interface Props {
     onOverwrite: (value: boolean) => void;
     // `null` : ouvrir la boîte de dialogue pour choisir le projet
     onAdd: (uproject: string | null) => void;
+    onUpdate: (uproject: string) => void;
     onForget: (uproject: string) => void;
     onDownload: () => void;
+    // Les projets où uehub a déjà ajouté cet asset
+    added: AddedAsset[];
 }
 
 // Ce que donnerait l'ajout à un projet, avec la même règle que plan_add côté Rust :
@@ -52,8 +58,9 @@ function fitNote(fit: Fit, engine: string | null): string | null {
 }
 
 export default function Details(props: Props) {
-    const { asset, versions, recent, notice, overwrite, onOverwrite } = props;
-    const { onAdd, onForget, onDownload } = props;
+    const { asset, versions, recent, added, notice, overwrite, onOverwrite } =
+        props;
+    const { onAdd, onUpdate, onForget, onDownload } = props;
     const noticeRef = useRef<HTMLParagraphElement>(null);
 
     // Le message s'affiche sous les boutons : on le fait défiler à l'écran s'il le faut.
@@ -69,8 +76,16 @@ export default function Details(props: Props) {
             </aside>
         );
 
-    // Le premier projet récent où l'asset va tel quel : c'est le bouton mis en avant.
-    const best = recent.find((p) => fitFor(asset, p.engine).kind === "exact");
+    // La fiche de l'asset dans un projet, s'il y est déjà.
+    const addedIn = (p: RecentProject) => added.find((a) => a.project === p.path);
+    // Le bouton mis en avant : une mise à jour s'il y en a une, sinon le premier projet
+    // récent où l'asset va tel quel.
+    const anyUpdate = added.some((a) => a.update);
+    const best = anyUpdate
+        ? undefined
+        : recent.find(
+            (p) => !addedIn(p) && fitFor(asset, p.engine).kind === "exact",
+        );
 
     return (
         <aside className="details" aria-label="Détail de l'asset">
@@ -98,19 +113,37 @@ export default function Details(props: Props) {
                     {recent.length > 0 && (
                         <ul className="recent">
                             {recent.map((p) => {
+                                const here = addedIn(p);
                                 const fit = fitFor(asset, p.engine);
-                                const note = fitNote(fit, p.engine);
+                                const note = here
+                                    ? here.update
+                                        ? updateText(here.update, here.engine)
+                                        : `Ajouté le ${formatSeconds(here.addedAt)}, version pour ${here.engine}.`
+                                    : fitNote(fit, p.engine);
                                 return (
                                     <li key={p.path}>
-                                        <button
-                                            className={p === best ? "project primary" : "project"}
-                                            title={p.path}
-                                            disabled={fit.kind === "none"}
-                                            onClick={() => onAdd(p.path)}
-                                        >
-                                            <span className="project-name">{p.name}</span>
-                                            {p.engine && <span>UE {p.engine}</span>}
-                                        </button>
+                                        {here?.update ? (
+                                            <button
+                                                className="project primary"
+                                                title={p.path}
+                                                onClick={() => onUpdate(p.path)}
+                                            >
+                                                <span className="project-name">{p.name}</span>
+                                                <span>Mettre à jour</span>
+                                            </button>
+                                        ) : (
+                                            <button
+                                                className={p === best ? "project primary" : "project"}
+                                                title={p.path}
+                                                disabled={!here && fit.kind === "none"}
+                                                onClick={() => onAdd(p.path)}
+                                            >
+                                                <span className="project-name">{p.name}</span>
+                                                <span>
+                          {here ? "À jour" : p.engine && `UE ${p.engine}`}
+                        </span>
+                                            </button>
+                                        )}
                                         <button
                                             className="quiet forget"
                                             title="Retirer de la liste"

@@ -6,13 +6,14 @@ import {
     api,
     compareVersions,
     type Asset,
+    type AddedAsset,
     type JobRequest,
     type RecentProject,
 } from "../api";
 import AssetList from "./AssetList";
 import { SearchIcon } from "./Common";
 import Details from "./Details";
-import Filters, { type KindFilter } from "./Filters";
+import Filters, { type KindFilter, type Tracked } from "./Filters";
 
 type Sort = "fab" | "title";
 
@@ -22,14 +23,17 @@ interface Props {
     onRetry: () => void;
     assets: Asset[];
     recent: RecentProject[];
-    // Relit les projets récents : un ajout met son projet en tête
-    onRecentChange: () => Promise<void>;
+    // Ce que uehub a ajouté aux projets récents
+    added: AddedAsset[];
+    // Relit les projets récents et leurs fiches : un ajout met son projet en tête
+    onProjectsChange: () => Promise<void>;
 }
 
 export default function Library(props: Props) {
-    const { assets, recent, onRecentChange } = props;
+    const { assets, recent, added, onProjectsChange } = props;
     const [query, setQuery] = useState("");
     const [kind, setKind] = useState<KindFilter>("all");
+    const [tracked, setTracked] = useState<Tracked>("all");
     const [version, setVersion] = useState<string | null>(null);
     const [sort, setSort] = useState<Sort>("fab");
     const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -43,18 +47,27 @@ export default function Library(props: Props) {
         [assets],
     );
 
+    // Les assets ajoutés à au moins un projet, et ceux qui ont une mise à jour quelque part.
+    const addedIds = useMemo(() => new Set(added.map((a) => a.assetId)), [added]);
+    const updateIds = useMemo(
+        () => new Set(added.filter((a) => a.update).map((a) => a.assetId)),
+        [added],
+    );
+
     const visible = useMemo(() => {
         const q = query.trim().toLowerCase();
         const shown = assets.filter(
             (a) =>
                 (kind === "all" || a.kind === kind) &&
                 (!version || a.engines.includes(version)) &&
+                (tracked === "all" ||
+                    (tracked === "added" ? addedIds : updateIds).has(a.id)) &&
                 a.title.toLowerCase().includes(q),
         );
         return sort === "title"
             ? [...shown].sort((a, b) => a.title.localeCompare(b.title, "fr"))
             : shown;
-    }, [assets, query, kind, version, sort]);
+    }, [assets, query, kind, version, tracked, addedIds, updateIds, sort]);
 
     // L'inspecteur suit la liste : un asset masqué par les filtres n'y reste pas affiché.
     const selected = visible.find((a) => a.id === selectedId) ?? null;
@@ -99,12 +112,24 @@ export default function Library(props: Props) {
             uproject,
             overwrite,
         });
-        await onRecentChange();
+        await onProjectsChange();
+    }
+
+    // Une mise à jour, c'est un nouvel ajout par-dessus l'ancien : il écrase forcément.
+    async function handleUpdate(uproject: string) {
+        if (!selected) return;
+        await enqueue({
+            kind: "addToProject",
+            assetId: selected.id,
+            uproject,
+            overwrite: true,
+        });
+        await onProjectsChange();
     }
 
     async function handleForget(uproject: string) {
         await api.forgetProject(uproject);
-        await onRecentChange();
+        await onProjectsChange();
     }
 
     return (
@@ -141,17 +166,23 @@ export default function Library(props: Props) {
                 onKind={setKind}
                 version={version}
                 onVersion={setVersion}
+                tracked={tracked}
+                onTracked={setTracked}
+                addedCount={addedIds.size}
+                updateCount={updateIds.size}
             />
             <AssetList
                 loading={props.loading}
                 error={props.error}
                 onRetry={props.onRetry}
                 assets={visible}
+                updates={updateIds}
                 selectedId={selectedId}
                 onSelect={select}
             />
             <Details
                 asset={selected}
+                added={added.filter((a) => a.assetId === selected?.id)}
                 versions={versions}
                 recent={recent}
                 notice={notice}
@@ -160,6 +191,7 @@ export default function Library(props: Props) {
                 onAdd={handleAdd}
                 onForget={handleForget}
                 onDownload={handleDownload}
+                onUpdate={handleUpdate}
             />
         </section>
     );
