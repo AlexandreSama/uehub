@@ -21,9 +21,9 @@ pub use project::{AssetKind, UnrealProject, parse_version};
 pub use thumbs::ThumbCache;
 pub use recent::RecentProjects;
 pub use engines::{
-    Downloaded, EULA_URL, EngineDownload, EngineInstall, InstallProgress, InstalledEngine,
-    UnrealSession, engine_for, engines_dir, extracted_size, free_space, installed_engines,
-    launch_editor, uninstall_engine,
+    Downloaded, EULA_URL, EngineDownload, EngineInstall, EngineList, InstallProgress,
+    InstalledEngine, ListedEngine, UnrealSession, engine_for, engines_dir, extracted_size,
+    free_space, installed_engines, launch_editor, uninstall_engine,
 };
 pub use added::{AddedAsset, AssetUpdate, ProjectAssets, update_for};
 

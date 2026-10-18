@@ -5,6 +5,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import {
     api,
     formatBytes,
+    formatSeconds,
     installing,
     jobFor,
     progressText,
@@ -39,6 +40,8 @@ export default function Engines({ jobs, rates }: Props) {
     const [removing, setRemoving] = useState<string | null>(null);
     const [catalog, setCatalog] = useState<EngineCatalog | null>(null);
     const [catalogError, setCatalogError] = useState<string | null>(null);
+    // La liste se relit chez Epic pendant que celle du disque reste affichée
+    const [refreshing, setRefreshing] = useState(false);
     const [folder, setFolder] = useState("");
     const [free, setFree] = useState<number | null>(null);
     // La version choisie dans la grille ; sans choix, celle qui s'installe ou la plus récente
@@ -60,19 +63,28 @@ export default function Engines({ jobs, rates }: Props) {
         }
     }
 
-    // La liste d'Epic passe par une session unrealengine.com : quelques secondes.
-    async function loadCatalog() {
-        setCatalog(null);
+    // Relire la liste d'Epic passe par une session unrealengine.com : quelques secondes.
+    // La liste affichée reste en place pendant ce temps.
+    async function refreshCatalog() {
+        setRefreshing(true);
         setCatalogError(null);
         try {
             setCatalog(await api.availableEngines());
         } catch (e) {
             setCatalogError(String(e));
         }
+        setRefreshing(false);
     }
 
+    // La liste gardée sur le disque s'affiche tout de suite, puis on la rafraîchit.
     useEffect(() => {
-        void loadCatalog();
+        api
+            .cachedEngines()
+            // Si Epic a déjà répondu, sa liste est plus fraîche : on la garde.
+            .then((cached) => setCatalog((shown) => shown ?? cached))
+            // Pas de liste gardée : on attend Epic, comme avant.
+            .catch(() => {});
+        void refreshCatalog();
         api.enginesFolder().then(setFolder, () => setFolder(""));
     }, []);
 
@@ -277,8 +289,12 @@ export default function Engines({ jobs, rates }: Props) {
                         {catalog?.eulaAccepted && (
                             <>
                                 <MatrixLegend />
-                                <button className="quiet" onClick={() => void loadCatalog()}>
-                                    Recharger
+                                <button
+                                    className="quiet"
+                                    disabled={refreshing}
+                                    onClick={() => void refreshCatalog()}
+                                >
+                                    {refreshing ? "Rechargement…" : "Recharger"}
                                 </button>
                             </>
                         )}
@@ -293,7 +309,7 @@ export default function Engines({ jobs, rates }: Props) {
                             <p className="error">
                                 Impossible de lire la liste d'Epic : {catalogError}
                             </p>
-                            <button onClick={() => void loadCatalog()}>Réessayer</button>
+                            <button onClick={() => void refreshCatalog()}>Réessayer</button>
                         </div>
                     ) : !catalog ? (
                         <p className="muted">Connexion à unrealengine.com…</p>
@@ -311,19 +327,31 @@ export default function Engines({ jobs, rates }: Props) {
                                 >
                                     Lire et accepter le CLUF
                                 </button>
-                                <button onClick={() => void loadCatalog()}>
+                                <button
+                                    disabled={refreshing}
+                                    onClick={() => void refreshCatalog()}
+                                >
                                     J'ai accepté, recharger
                                 </button>
                             </div>
                         </div>
                     ) : (
-                        <EngineMatrix
-                            engines={all}
-                            local={local}
-                            jobs={jobs}
-                            selected={current}
-                            onSelect={setSelected}
-                        />
+                        <>
+                            {/* Epic ne répond pas : la liste gardée reste utilisable. */}
+                            {catalogError && (
+                                <p className="error" role="status">
+                                    Impossible de rafraîchir la liste, elle date du{" "}
+                                    {formatSeconds(catalog.checkedAt)} : {catalogError}
+                                </p>
+                            )}
+                            <EngineMatrix
+                                engines={all}
+                                local={local}
+                                jobs={jobs}
+                                selected={current}
+                                onSelect={setSelected}
+                            />
+                        </>
                     )}
                 </section>
             </div>

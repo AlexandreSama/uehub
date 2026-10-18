@@ -11,7 +11,7 @@ use tauri_plugin_opener::OpenerExt;
 use tokio::sync::Mutex;
 use uehub_core::{
     AssetKind, AssetUpdate, CoreError, DownloadSummary, Downloaded, EULA_URL, EngineDownload,
-    EngineInstall, EpicClient, FabAsset, InstallProgress, InstalledEngine, LOGIN_URL,
+    EngineInstall, EngineList, EpicClient, FabAsset, InstallProgress, InstalledEngine, LOGIN_URL,
     PreparedDownload, Progress, ProjectAssets, ProjectVersion, RecentProjects, UnrealProject,
     UnrealSession, engine_for, engines_dir, extracted_size, folder_name, installed_engines,
     launch_editor, parse_version, pick_for_project, pick_version, update_for,
@@ -215,6 +215,8 @@ pub struct AvailableEngine {
 pub struct EngineCatalog {
     /// Sans CLUF accepté, Epic ne propose rien : `engines` est vide.
     eula_accepted: bool,
+    /// Quand la liste a été lue sur unrealengine.com, en secondes depuis 1970
+    checked_at: u64,
     engines: Vec<AvailableEngine>,
 }
 
@@ -226,6 +228,30 @@ pub struct LocalEngine {
     dir: String,
     /// Installé par uehub : l'écran propose de le désinstaller
     by_uehub: bool,
+}
+
+/// La liste telle que l'écran l'affiche : le jour de mise en ligne, et la place
+/// qu'il faudra une fois le zip extrait.
+fn catalog(list: EngineList, eula_accepted: bool) -> EngineCatalog {
+    let engines = list
+        .engines
+        .into_iter()
+        .map(|e| AvailableEngine {
+            date: e
+                .created_at
+                .as_deref()
+                .and_then(|d| d.get(..10))
+                .map(String::from),
+            version: e.version,
+            extracted: extracted_size(e.size),
+            size: e.size,
+        })
+        .collect();
+    EngineCatalog {
+        eula_accepted,
+        checked_at: list.checked_at,
+        engines,
+    }
 }
 
 fn account(client: &EpicClient) -> Account {
@@ -653,35 +679,25 @@ pub fn local_engines() -> Result<Vec<LocalEngine>> {
     Ok(engines)
 }
 
-/// Ce qu'Epic propose pour Linux, du plus récent au plus ancien.
+/// La dernière liste d'Epic gardée sur le disque : elle s'affiche sans attendre le
+/// réseau. Pas encore de liste (premier passage) : `null`.
+#[tauri::command]
+pub fn cached_engines() -> Option<EngineCatalog> {
+    EngineList::load().map(|list| catalog(list, true))
+}
+
+/// Ce qu'Epic propose aujourd'hui pour Linux, du plus récent au plus ancien. Il faut
+/// ouvrir une session unrealengine.com : quelques secondes. La liste lue remplace
+/// celle du disque.
 #[tauri::command]
 pub async fn available_engines(state: State<'_, AppState>) -> Result<EngineCatalog> {
     let session = unreal_session(&state).await?;
     if !session.eula_accepted().await? {
-        return Ok(EngineCatalog {
-            eula_accepted: false,
-            engines: Vec::new(),
-        });
+        // Epic ne propose rien à ce compte : la liste gardée ne doit plus s'afficher.
+        EngineList::forget();
+        return Ok(catalog(EngineList::checked_now(Vec::new()), false));
     }
-    let engines = session
-        .engine_downloads()
-        .await?
-        .into_iter()
-        .map(|e| AvailableEngine {
-            date: e
-                .created_at
-                .as_deref()
-                .and_then(|d| d.get(..10))
-                .map(String::from),
-            version: e.version,
-            extracted: extracted_size(e.size),
-            size: e.size,
-        })
-        .collect();
-    Ok(EngineCatalog {
-        eula_accepted: true,
-        engines,
-    })
+    Ok(catalog(session.engine_list().await?, true))
 }
 
 /// Le dossier où ranger les moteurs : celui que tu as choisi, sinon ~/UnrealEngine.

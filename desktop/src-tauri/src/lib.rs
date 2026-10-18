@@ -57,6 +57,8 @@ pub fn run() {
             commands::forget_project,
             commands::added_assets,
             commands::local_engines,
+            commands::cached_engines,
+            commands::available_engines,
             commands::available_engines,
             commands::engines_folder,
             commands::set_engines_folder,

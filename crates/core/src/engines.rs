@@ -4,7 +4,8 @@
 mod install;
 mod page;
 mod session;
-pub mod launch;
+mod launch;
+mod cache;
 
 pub use install::{
     Downloaded, EngineInstall, InstallProgress, InstalledEngine, engines_dir, extracted_size,
@@ -12,6 +13,7 @@ pub use install::{
 };
 pub use launch::{engine_for, launch_editor};
 pub use session::UnrealSession;
+pub use cache::{EngineList, ListedEngine};
 
 use crate::CoreError;
 

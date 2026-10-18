@@ -15,7 +15,7 @@ use reqwest::header::{ACCEPT, HeaderMap, HeaderValue, USER_AGENT};
 use reqwest::{Response, Url};
 use serde_json::Value;
 
-use super::{EngineDownload, net, page};
+use super::{EngineDownload, EngineList, ListedEngine, net, page};
 use crate::{CoreError, EpicClient, Result};
 
 const JSON: &str = "application/json";
@@ -175,6 +175,15 @@ impl UnrealSession {
         let response = ensure_ok(response, "vérification du CLUF").await?;
         let json: Value = response.json().await.map_err(net)?;
         Ok(json.get("accepted").and_then(Value::as_bool) == Some(true))
+    }
+
+    /// La liste des moteurs proposés, sans les adresses de téléchargement. Elle est
+    /// gardée sur le disque : le prochain affichage n'aura pas à attendre Epic.
+    pub async fn engine_list(&self) -> Result<EngineList> {
+        let downloads = self.engine_downloads().await?;
+        let list = EngineList::checked_now(downloads.iter().map(ListedEngine::from).collect());
+        list.save();
+        Ok(list)
     }
 
     /// Les zip du moteur proposés par la page Linux, du plus récent au plus ancien.

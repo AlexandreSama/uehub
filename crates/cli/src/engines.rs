@@ -28,7 +28,7 @@ pub async fn list(client: &mut EpicClient) -> Result<()> {
         return Ok(());
     }
     println!("\nMoteurs proposés par Epic :");
-    for engine in session.engine_downloads().await? {
+    for engine in session.engine_list().await?.engines {
         let day = engine.created_at.as_deref().and_then(|d| d.get(..10));
         let mark = if installed
             .iter()

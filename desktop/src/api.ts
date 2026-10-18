@@ -104,6 +104,8 @@ export interface AvailableEngine {
 
 export interface EngineCatalog {
     eulaAccepted: boolean;
+    // Quand la liste a été lue sur unrealengine.com, en secondes depuis 1970
+    checkedAt: number;
     engines: AvailableEngine[];
 }
 
@@ -133,6 +135,7 @@ export const api = {
         invoke<void>("forget_project", { uproject }),
     addedAssets: () => invoke<AddedAsset[]>("added_assets"),
     localEngines: () => invoke<LocalEngine[]>("local_engines"),
+    cachedEngines: () => invoke<EngineCatalog | null>("cached_engines"),
     availableEngines: () => invoke<EngineCatalog>("available_engines"),
     enginesFolder: () => invoke<string>("engines_folder"),
     setEnginesFolder: (folder: string) =>
