@@ -69,9 +69,12 @@ impl AppState {
 pub enum Error {
     #[error(transparent)]
     Core(#[from] CoreError),
+    #[error(transparent)]
+    Updater(#[from] tauri_plugin_updater::Error),
     #[error("{0}")]
     Msg(String),
 }
+
 
 impl Serialize for Error {
     fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
@@ -79,7 +82,7 @@ impl Serialize for Error {
     }
 }
 
-type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, Error>;
 
 // ---------------------------------------------------------------------------
 // Ce qu'on envoie à l'interface

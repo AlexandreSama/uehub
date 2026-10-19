@@ -305,7 +305,30 @@ input::placeholder {
 
 .account {
     position: relative;
+}
+
+/* En bas du rail : le bouton de mise à jour, s'il y en a une, puis le compte. */
+.rail-foot {
     margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.account,
+.update {
+    position: relative;
+}
+
+/* L'ambre de ce qui attend une action, comme l'étiquette « Mise à jour » des assets. */
+.rail-button.update-button,
+.rail-button.update-button:hover {
+    color: var(--accent);
+}
+
+.rail-button.update-button[aria-expanded="true"] {
+    background: var(--accent-soft);
 }
 
 .avatar {
@@ -342,6 +365,8 @@ input::placeholder {
 .account-menu button {
     align-self: flex-start;
 }
+
+
 
 /* Chaque écran occupe la case à droite du rail, avec son en-tête au-dessus. */
 .library,
@@ -1410,4 +1435,45 @@ table {
     * {
         transition: none !important;
     }
+}
+
+.account-menu,
+.update-menu {
+    position: absolute;
+}
+
+.account-menu .muted,
+.update-menu .muted {
+    margin: 0;
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
+.account-menu button,
+.update-menu button {
+    align-self: flex-start;
+}
+
+/* Ce que change la nouvelle version, tel qu'écrit dans latest.json. */
+.update-menu .notes {
+    margin: 0;
+    max-height: 160px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    font-size: 13px;
+}
+
+.update-menu .error {
+    margin: 0;
+    font-size: 12px;
+}
+
+/* La version de uehub, sous le compte. */
+.app-version {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 4px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
 }

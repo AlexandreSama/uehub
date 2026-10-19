@@ -1,5 +1,5 @@
 // Les appels vers Rust, typés. Chaque fonction correspond à une commande de commands.rs.
-import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { Channel, convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { homeDir } from "@tauri-apps/api/path";
 
@@ -109,6 +109,27 @@ export interface EngineCatalog {
     engines: AvailableEngine[];
 }
 
+// Cette copie de uehub (AppInfo dans update.rs).
+export interface AppInfo {
+    version: string;
+    // Le paquet d'où vient uehub : il se met à jour seul. null : par le gestionnaire de paquets
+    package: "deb" | "rpm" | "appimage" | null;
+    // Lancée par `tauri dev`
+    dev: boolean;
+}
+
+// Une version plus récente, publiée sur GitHub Releases (UpdateInfo dans update.rs).
+export interface UpdateInfo {
+    version: string;
+    date: string | null;
+    notes: string | null;
+}
+
+// L'avancement de l'installation : le téléchargement, puis l'installation du paquet.
+export type UpdateProgress =
+    | { step: "download"; done: number; total: number | null }
+    | { step: "install" };
+
 // Un moteur enregistré dans Install.ini.
 export interface LocalEngine {
     version: string | null;
@@ -145,6 +166,14 @@ export const api = {
     launchEngine: (dir: string) => invoke<void>("launch_engine", { dir }),
     openProject: (uproject: string) => invoke<void>("open_project", { uproject }),
     removeEngine: (dir: string) => invoke<void>("remove_engine", { dir }),
+    appInfo: () => invoke<AppInfo>("app_info"),
+    checkUpdate: () => invoke<UpdateInfo | null>("check_update"),
+    // L'avancement arrive par un canal ; si tout va bien, uehub redémarre à la fin.
+    installUpdate: (onProgress: (progress: UpdateProgress) => void) => {
+        const channel = new Channel<UpdateProgress>();
+        channel.onmessage = onProgress;
+        return invoke<void>("install_update", {onProgress: channel})
+    },
 };
 
 // Rust envoie la file entière à chaque changement. Renvoie de quoi arrêter l'écoute.

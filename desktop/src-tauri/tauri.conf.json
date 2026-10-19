@@ -1,7 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "uehub",
-  "version": "0.1.0",
   "identifier": "dev.uehub.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -38,6 +37,16 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDZFODQzNzdGMTMyMjc0NDgKUldSSWRDSVRmemVFYnF4ZW1sb3BTZ2YzZzZ5bzJkNFFYS0hNaklaSk5CU3FIZWJkU1Bhd3QwNFAK",
+      "endpoints": [
+        "https://github.com/TON_COMPTE/uehub/releases/latest/download/latest.json"
+      ],
+      "requireSignedVersion": true
+    }
   }
 }

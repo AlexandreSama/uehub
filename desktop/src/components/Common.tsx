@@ -115,6 +115,16 @@ export function EngineIcon() {
     );
 }
 
+// Une flèche qui monte au-dessus d'un socle : une nouvelle version à installer.
+export function UpdateIcon() {
+    return (
+        <Icon>
+            <path d="M10 13.5 V3 M5.5 7.5 L10 3 L14.5 7.5" />
+            <path d="M3.5 17 H16.5" />
+        </Icon>
+    );
+}
+
 export function SearchIcon() {
     return (
         <Icon>

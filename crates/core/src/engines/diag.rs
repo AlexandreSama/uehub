@@ -360,7 +360,7 @@ async fn linux_page(
         read += 1;
         paths.extend(api_paths(&js));
         for name in engine_names(&js) {
-            paths.insert(format!("(nom de zip dans un script) {name}"));
+            paths.insert(format!("(nom de zip dans un scripts) {name}"));
         }
     }
     report(format!(

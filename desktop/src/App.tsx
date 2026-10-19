@@ -9,6 +9,7 @@ import {
     type RecentProject,
 } from "./api";
 import { useTransferRates } from "./rates";
+import { useAppUpdate } from "./update";
 import Login from "./components/Login";
 import Rail, { type View } from "./components/Rail";
 import Library from "./components/Library";
@@ -30,6 +31,7 @@ export default function App() {
     const [jobs, setJobs] = useState<QueueJob[]>([]);
     const [queueOpen, setQueueOpen] = useState(false);
     const rates = useTransferRates(jobs);
+    const update = useAppUpdate();
 
     async function loadRecent() {
         try {
@@ -122,6 +124,11 @@ export default function App() {
     if (screen === "login")
         return <Login onOpenPage={api.openLoginPage} onSubmit={handleLogin} />;
 
+    // Le redémarrage d'une mise à jour arrête ce qui tourne : on prévient avant.
+    const queueBusy = jobs.some(
+        (j) => j.status.state === "running" || j.status.state === "waiting",
+    );
+
     return (
         <div className="app">
             <Rail
@@ -129,6 +136,8 @@ export default function App() {
                 onView={setView}
                 account={account}
                 onLogout={handleLogout}
+                update={update}
+                queueBusy={queueBusy}
             />
             {view === "engines" ? (
                 <Engines jobs={jobs} rates={rates} />

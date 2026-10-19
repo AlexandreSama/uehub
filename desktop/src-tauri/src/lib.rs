@@ -5,12 +5,14 @@ mod notify;
 mod queue;
 mod thumbs;
 mod settings;
+mod update;
 
 use tauri::Manager;
 use uehub_core::{EpicClient, ThumbCache};
 
 use commands::AppState;
 use queue::Queue;
+use update::PendingUpdate;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -19,11 +21,13 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             // Recharge la session enregistrée (trousseau ou fichier) dès le démarrage.
             let client = EpicClient::new()?;
             app.manage(AppState::new(client));
             app.manage(ThumbCache::new()?);
+            app.manage(PendingUpdate::default());
             // La file enregistrée revient en pause ; le worker attend qu'on la relance.
             app.manage(Queue::load(app.handle().clone())?);
             tauri::async_runtime::spawn(queue::worker(app.handle().clone()));
@@ -66,6 +70,9 @@ pub fn run() {
             commands::launch_engine,
             commands::open_project,
             commands::remove_engine,
+            update::app_info,
+            update::check_update,
+            update::install_update,
             commands::free_space,
         ])
         .run(tauri::generate_context!())
