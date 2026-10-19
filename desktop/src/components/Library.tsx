@@ -5,8 +5,9 @@ import { open } from "@tauri-apps/plugin-dialog";
 import {
     api,
     compareVersions,
-    type Asset,
+    removalText,
     type AddedAsset,
+    type Asset,
     type JobRequest,
     type RecentProject,
 } from "../api";
@@ -17,10 +18,18 @@ import Filters, { type KindFilter, type Tracked } from "./Filters";
 
 type Sort = "fab" | "title";
 
+// Ce qu'on affiche sous les boutons de l'inspecteur : un refus, ou le bilan d'un retrait.
+export interface Notice {
+    text: string;
+    error: boolean;
+}
+
 interface Props {
     loading: boolean;
     error: string | null;
     onRetry: () => void;
+    // Relit la bibliothèque sans vider la liste ; rejette si Fab ne répond pas
+    onReload: () => Promise<void>;
     assets: Asset[];
     recent: RecentProject[];
     // Ce que uehub a ajouté aux projets récents
@@ -30,7 +39,7 @@ interface Props {
 }
 
 export default function Library(props: Props) {
-    const { assets, recent, added, onProjectsChange } = props;
+    const { assets, recent, added, onReload, onProjectsChange } = props;
     const [query, setQuery] = useState("");
     const [kind, setKind] = useState<KindFilter>("all");
     const [tracked, setTracked] = useState<Tracked>("all");
@@ -38,8 +47,10 @@ export default function Library(props: Props) {
     const [sort, setSort] = useState<Sort>("fab");
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [overwrite, setOverwrite] = useState(false);
-    // Refus de la file (déjà en file, version introuvable…), affiché sous les boutons.
-    const [notice, setNotice] = useState<string | null>(null);
+    const [notice, setNotice] = useState<Notice | null>(null);
+    const [reloading, setReloading] = useState(false);
+    // Ce qui n'a pas marché dans l'en-tête : le rechargement, ou l'ouverture de Fab
+    const [headError, setHeadError] = useState<string | null>(null);
 
     // Les versions d'Unreal présentes dans la bibliothèque, de la plus ancienne à la plus récente.
     const versions = useMemo(
@@ -82,7 +93,29 @@ export default function Library(props: Props) {
             await api.enqueue(request);
             setNotice(null);
         } catch (e) {
-            setNotice(String(e));
+            setNotice({ text: String(e), error: true });
+        }
+    }
+
+    // Un asset acheté sur Fab depuis le démarrage n'apparaît qu'après un rechargement.
+    async function handleReload() {
+        setReloading(true);
+        setHeadError(null);
+        try {
+            await onReload();
+        } catch (e) {
+            setHeadError(`Impossible de recharger la bibliothèque : ${e}`);
+        }
+        setReloading(false);
+    }
+
+    async function openFab(assetId: string | null) {
+        try {
+            await api.openFab(assetId);
+        } catch (e) {
+            const text = String(e);
+            if (assetId) setNotice({ text, error: true });
+            else setHeadError(text);
         }
     }
 
@@ -127,6 +160,18 @@ export default function Library(props: Props) {
         await onProjectsChange();
     }
 
+    // L'inspecteur demande confirmation avant : retirer efface des fichiers du projet.
+    async function handleRemove(uproject: string) {
+        if (!selected) return;
+        try {
+            const removal = await api.removeAsset(uproject, selected.id);
+            setNotice({ text: removalText(removal), error: false });
+        } catch (e) {
+            setNotice({ text: String(e), error: true });
+        }
+        await onProjectsChange();
+    }
+
     async function handleForget(uproject: string) {
         await api.forgetProject(uproject);
         await onProjectsChange();
@@ -137,6 +182,16 @@ export default function Library(props: Props) {
             <header className="screen-head">
                 <h1>Bibliothèque</h1>
                 <span className="muted">{assets.length} assets Fab</span>
+                <button
+                    className="quiet reload"
+                    disabled={reloading || props.loading}
+                    onClick={() => void handleReload()}
+                >
+                    {reloading ? "Rechargement…" : "Recharger"}
+                </button>
+                <button className="quiet" onClick={() => void openFab(null)}>
+                    Ouvrir Fab
+                </button>
                 <label className="search">
                     <SearchIcon />
                     <input
@@ -157,6 +212,11 @@ export default function Library(props: Props) {
                         <option value="title">Titre</option>
                     </select>
                 </label>
+                {headError && (
+                    <p className="head-error" role="alert">
+                        {headError}
+                    </p>
+                )}
             </header>
             <Filters
                 assets={assets}
@@ -189,9 +249,11 @@ export default function Library(props: Props) {
                 overwrite={overwrite}
                 onOverwrite={setOverwrite}
                 onAdd={handleAdd}
-                onForget={handleForget}
                 onDownload={handleDownload}
                 onUpdate={handleUpdate}
+                onRemove={handleRemove}
+                onOpenFab={() => void openFab(selected?.id ?? null)}
+                onForget={handleForget}
             />
         </section>
     );

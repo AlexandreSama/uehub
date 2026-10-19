@@ -2,14 +2,16 @@
 //! Saved/uehub/assets.json, à l'intérieur du projet. En la comparant à la bibliothèque
 //! Fab, on sait si une version plus récente est sortie.
 
-use std::path::{Path, PathBuf};
+use std::collections::HashSet;
+use std::io::ErrorKind;
+use std::path::{Component, Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use egs_api::api::types::fab_library::{FabAsset, ProjectVersion};
 use serde::{Deserialize, Serialize};
 
 use crate::download::{build_of, newest_engine, pick_for_project};
-use crate::{Result, parse_version};
+use crate::{CoreError, Result, parse_version};
 
 /// Le fichier, relatif au dossier du projet. Saved/ est le dossier des données locales
 /// d'un projet Unreal : les modèles de .gitignore d'Unreal l'excluent déjà.
@@ -89,8 +91,21 @@ pub fn update_for(
         .then_some(AssetUpdate::NewBuild)
 }
 
+/// Ce qu'un retrait a fait sur le disque.
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct Removal {
+    /// Fichiers effacés
+    pub deleted: usize,
+    /// Fichiers gardés : un autre asset du projet les a aussi installés
+    pub shared: usize,
+    /// Fichiers déjà absents (effacés à la main, par exemple)
+    pub missing: usize,
+}
+
 /// Les fiches d'un projet.
 pub struct ProjectAssets {
+    /// Le dossier du projet : les chemins des fiches partent de lui
+    dir: PathBuf,
     file: PathBuf,
     assets: Vec<AddedAsset>,
 }
@@ -104,18 +119,113 @@ impl ProjectAssets {
             .ok()
             .and_then(|bytes| serde_json::from_slice(&bytes).ok())
             .unwrap_or_default();
-        Self { file, assets }
+        Self {
+            dir: project_dir.to_path_buf(),
+            file,
+            assets
+        }
     }
 
     pub fn list(&self) -> &[AddedAsset] {
         &self.assets
     }
 
-    /// Range la fiche (elle remplace celle du même asset), puis enregistre.
-    pub fn record(&mut self, added: AddedAsset) -> Result<()> {
-        self.assets.retain(|a| a.asset_id != added.asset_id);
+    /// Range la fiche (elle remplace celle du même asset), puis enregistre. Pour une mise
+    /// à jour, les fichiers de l'ancienne version que la nouvelle n'a plus sont effacés.
+    pub fn record(&mut self, added: AddedAsset) -> Result<Removal> {
+        let stale: Vec<String> = match self.take(&added.asset_id) {
+            Some(old) => {
+                let kept: HashSet<&str> = added.files.iter().map(String::as_str).collect();
+                old.files
+                    .into_iter()
+                    .filter(|f| !kept.contains(f.as_str()))
+                    .collect()
+            }
+            None => Vec::new(),
+        };
+        let removal = self.delete(&stale)?;
         self.assets.push(added);
-        self.save()
+        self.save()?;
+        Ok(removal)
+    }
+
+    /// Retire un asset du projet : efface ses fichiers, sauf ceux qu'un autre asset a
+    /// aussi installés, puis sa fiche. Les dossiers qu'il laisse vides disparaissent avec.
+    pub fn remove(&mut self, asset_id: &str) -> Result<Removal> {
+        let added = self.take(asset_id).ok_or_else(|| {
+            CoreError::Project("cet asset n'a pas été ajouté à ce projet par uehub".into())
+        })?;
+        let removal = self.delete(&added.files)?;
+        self.save()?;
+        Ok(removal)
+    }
+
+    /// Sort la fiche d'un asset de la liste.
+    fn take(&mut self, asset_id: &str) -> Option<AddedAsset> {
+        let i = self.assets.iter().position(|a| a.asset_id == asset_id)?;
+        Some(self.assets.remove(i))
+    }
+
+    /// Efface ces fichiers du projet. Ceux qu'une autre fiche cite restent : deux packs
+    /// d'un même vendeur installent souvent les mêmes textures.
+    fn delete(&self, files: &[String]) -> Result<Removal> {
+        let others: HashSet<&str> = self
+            .assets
+            .iter()
+            .flat_map(|a| a.files.iter().map(String::as_str))
+            .collect();
+        let mut removal = Removal::default();
+        for file in files {
+            if others.contains(file.as_str()) {
+                removal.shared += 1;
+                continue;
+            }
+            // Un chemin qui sortirait du projet n'est jamais effacé : compté comme absent.
+            let Some(path) = self.inside(file) else {
+                removal.missing += 1;
+                continue;
+            };
+            match std::fs::remove_file(&path) {
+                Ok(()) => {
+                    removal.deleted += 1;
+                    self.prune(&path);
+                }
+                Err(e) if e.kind() == ErrorKind::NotFound => removal.missing += 1,
+                Err(e) => {
+                    return Err(CoreError::Project(format!(
+                        "impossible d'effacer {file} : {e}"
+                    )));
+                }
+            }
+        }
+        Ok(removal)
+    }
+
+    /// Le chemin d'un fichier de la fiche, dans le projet. Une fiche abîmée ou modifiée à
+    /// la main ne doit rien effacer ailleurs : seuls les chemins relatifs simples passent,
+    /// sans `..` ni `/` au début.
+    fn inside(&self, file: &str) -> Option<PathBuf> {
+        let relative = Path::new(file);
+        let simple = relative
+            .components()
+            .all(|c| matches!(c, Component::Normal(_)));
+        (simple && !file.is_empty()).then(|| self.dir.join(relative))
+    }
+
+    /// Supprime les dossiers que l'effacement d'un fichier a laissés vides, en remontant.
+    /// On s'arrête avant les dossiers du projet lui-même (Content, Plugins…).
+    fn prune(&self, file: &Path) {
+        let mut dir = file.parent();
+        while let Some(d) = dir {
+            if d == self.dir || d.parent() == Some(self.dir.as_path()) {
+                break;
+            }
+            // Un dossier qui n'est pas vide refuse : c'est là qu'on s'arrête.
+            if std::fs::remove_dir(d).is_err() {
+                break;
+            }
+            dir = d.parent();
+        }
     }
 
     /// Écrit dans un fichier temporaire puis renomme : une coupure au mauvais moment

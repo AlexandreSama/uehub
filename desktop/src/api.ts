@@ -34,6 +34,15 @@ export interface RecentProject {
     opensWith: string | null;
 }
 
+// Ce qu'a fait le retrait d'un asset (RemovalView dans commands.rs).
+export interface Removal {
+    deleted: number;
+    // Gardés : un autre asset du projet les a aussi installés
+    shared: number;
+    // Déjà absents du projet
+    missing: number;
+}
+
 // Un asset que uehub a ajouté à un projet récent (AddedView dans commands.rs).
 export interface AddedAsset {
     // Le .uproject du projet
@@ -141,6 +150,8 @@ export interface LocalEngine {
 export const api = {
     session: () => invoke<Account | null>("session"),
     openLoginPage: () => invoke<void>("open_login_page"),
+    // La page Fab de l'asset ; sans asset, ta bibliothèque sur Fab.
+    openFab: (assetId: string | null) => invoke<void>("open_fab", { assetId }),
     login: (code: string) => invoke<Account>("login", { code }),
     logout: () => invoke<void>("logout"),
     library: () => invoke<Asset[]>("library"),
@@ -155,6 +166,8 @@ export const api = {
     forgetProject: (uproject: string) =>
         invoke<void>("forget_project", { uproject }),
     addedAssets: () => invoke<AddedAsset[]>("added_assets"),
+    removeAsset: (uproject: string, assetId: string) =>
+        invoke<Removal>("remove_asset", { uproject, assetId }),
     localEngines: () => invoke<LocalEngine[]>("local_engines"),
     cachedEngines: () => invoke<EngineCatalog | null>("cached_engines"),
     availableEngines: () => invoke<EngineCatalog>("available_engines"),
@@ -352,4 +365,23 @@ export function updateText(update: AssetUpdate, installed: string): string {
     return update.kind === "newBuild"
         ? `Le vendeur a publié une nouvelle build de la version pour ${installed}.`
         : `Une version pour UE ${update.engine} existe : elle remplacera celle pour ${installed}.`;
+}
+
+// "48 fichiers supprimés. 3 fichiers gardés : un autre asset du projet les utilise aussi."
+export function removalText(removal: Removal): string {
+    const { deleted, shared, missing } = removal;
+    const parts = [
+        deleted > 1
+            ? `${deleted} fichiers supprimés.`
+            : `${deleted} fichier supprimé.`,
+    ];
+    if (shared === 1)
+        parts.push("1 fichier gardé : un autre asset du projet l'utilise aussi.");
+    if (shared > 1)
+        parts.push(
+            `${shared} fichiers gardés : un autre asset du projet les utilise aussi.`,
+        );
+    if (missing === 1) parts.push("1 était déjà absent.");
+    if (missing > 1) parts.push(`${missing} étaient déjà absents.`);
+    return parts.join(" ");
 }

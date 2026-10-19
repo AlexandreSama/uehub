@@ -1,5 +1,5 @@
 // L'inspecteur de l'asset choisi : ses versions d'Unreal, et où l'ajouter.
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     compareVersions,
     engineRange,
@@ -11,19 +11,23 @@ import {
     type AddedAsset,
 } from "../api";
 import { KindPin, Thumb } from "./Common";
+import type { Notice } from "./Library";
 
 interface Props {
     asset: Asset | null;
     // Les versions de toute la bibliothèque, pour la règle
     versions: string[];
     recent: RecentProject[];
-    // Pourquoi la file a refusé la dernière demande, s'il y a lieu
-    notice: string | null;
+    // Un refus de la file, ou le bilan d'un retrait
+    notice: Notice | null;
     overwrite: boolean;
     onOverwrite: (value: boolean) => void;
     // `null` : ouvrir la boîte de dialogue pour choisir le projet
     onAdd: (uproject: string | null) => void;
     onUpdate: (uproject: string) => void;
+    // Efface les fichiers de l'asset dans ce projet, puis sa fiche
+    onRemove: (uproject: string) => void;
+    onOpenFab: () => void;
     onForget: (uproject: string) => void;
     onDownload: () => void;
     // Les projets où uehub a déjà ajouté cet asset
@@ -60,8 +64,15 @@ function fitNote(fit: Fit, engine: string | null): string | null {
 export default function Details(props: Props) {
     const { asset, versions, recent, added, notice, overwrite, onOverwrite } =
         props;
-    const { onAdd, onUpdate, onForget, onDownload } = props;
+    const { onAdd, onUpdate, onRemove, onOpenFab, onForget, onDownload } = props;
     const noticeRef = useRef<HTMLParagraphElement>(null);
+    // Le projet dont on demande confirmation avant d'y effacer l'asset
+    const [confirming, setConfirming] = useState<string | null>(null);
+
+    // Un autre asset choisi : la confirmation en cours ne le concerne pas.
+    useEffect(() => {
+        setConfirming(null);
+    }, [asset?.id]);
 
     // Le message s'affiche sous les boutons : on le fait défiler à l'écran s'il le faut.
     useEffect(() => {
@@ -96,6 +107,9 @@ export default function Details(props: Props) {
                     <KindPin kind={asset.kind} />
                     {KIND_LABEL[asset.kind]}
                     {asset.category && <span className="muted">{asset.category}</span>}
+                    <button className="quiet fab-link" onClick={onOpenFab}>
+                        Voir sur Fab
+                    </button>
                 </p>
             </div>
 
@@ -152,7 +166,43 @@ export default function Details(props: Props) {
                                         >
                                             ×
                                         </button>
-                                        {note && <p className="fit">{note}</p>}
+                                        {here && confirming === p.path ? (
+                                            <div className="confirm">
+                        <span>
+                          Supprimer les {here.files} fichiers de cet asset dans{" "}
+                            {p.name} ? Ferme le projet dans Unreal avant.
+                        </span>
+                                                <button
+                                                    className="danger"
+                                                    onClick={() => {
+                                                        setConfirming(null);
+                                                        onRemove(p.path);
+                                                    }}
+                                                >
+                                                    Supprimer
+                                                </button>
+                                                <button
+                                                    className="quiet"
+                                                    onClick={() => setConfirming(null)}
+                                                >
+                                                    Annuler
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            note && (
+                                                <p className="fit">
+                                                    {note}
+                                                    {here && (
+                                                        <button
+                                                            className="quiet inline-action"
+                                                            onClick={() => setConfirming(p.path)}
+                                                        >
+                                                            Retirer du projet
+                                                        </button>
+                                                    )}
+                                                </p>
+                                            )
+                                        )}
                                     </li>
                                 );
                             })}
@@ -174,8 +224,12 @@ export default function Details(props: Props) {
 
             <button onClick={onDownload}>Télécharger dans un dossier…</button>
             {notice && (
-                <p ref={noticeRef} className="error" role="alert">
-                    {notice}
+                <p
+                    ref={noticeRef}
+                    className={notice.error ? "error" : "muted"}
+                    role={notice.error ? "alert" : "status"}
+                >
+                    {notice.text}
                 </p>
             )}
         </aside>

@@ -12,9 +12,9 @@ use tokio::sync::Mutex;
 use uehub_core::{
     AssetKind, AssetUpdate, CoreError, DownloadSummary, Downloaded, EULA_URL, EngineDownload,
     EngineInstall, EngineList, EpicClient, FabAsset, InstallProgress, InstalledEngine, LOGIN_URL,
-    PreparedDownload, Progress, ProjectAssets, ProjectVersion, RecentProjects, UnrealProject,
-    UnrealSession, engine_for, engines_dir, extracted_size, folder_name, installed_engines,
-    launch_editor, parse_version, pick_for_project, pick_version, update_for,
+    PreparedDownload, Progress, ProjectAssets, ProjectVersion, RecentProjects, Removal,
+    UnrealProject, UnrealSession, engine_for, engines_dir, extracted_size, folder_name,
+    installed_engines, launch_editor, parse_version, pick_for_project, pick_version, update_for,
 };
 
 use crate::queue::{Job, Queue, Request, Status};
@@ -304,6 +304,16 @@ impl From<&FabAsset> for Asset {
 }
 
 fn summary(done: DownloadSummary, note: Option<String>) -> Summary {
+    // Une mise à jour efface ce que la nouvelle version n'a plus : on le dit.
+    let removed = match done.removed {
+        0 => None,
+        1 => Some("1 fichier de l'ancienne version effacé.".to_string()),
+        n => Some(format!("{n} fichiers de l'ancienne version effacés.")),
+    };
+    let note = match (note, removed) {
+        (Some(note), Some(removed)) => Some(format!("{note} {removed}")),
+        (note, removed) => note.or(removed),
+    };
     Summary {
         files: done.files,
         bytes: done.bytes,
@@ -534,6 +544,25 @@ pub async fn session(state: State<'_, AppState>) -> Result<Option<Account>> {
 #[tauri::command]
 pub fn open_login_page(app: AppHandle) -> Result<()> {
     open_in_browser(&app, LOGIN_URL)
+}
+
+/// Ta bibliothèque sur Fab, quand on ne connaît pas la page d'un asset.
+const FAB_LIBRARY_URL: &str = "https://www.fab.com/library";
+
+/// Ouvre Fab dans le navigateur : la page de l'asset si Fab la donne, sinon ta
+/// bibliothèque. L'interface ne donne qu'un identifiant : l'adresse vient de la
+/// bibliothèque chargée, et seules celles de fab.com sont ouvertes.
+#[tauri::command]
+pub fn open_fab(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    asset_id: Option<String>,
+) -> Result<()> {
+    let listing = asset_id
+        .and_then(|id| state.asset(&id).ok())
+        .map(|asset| asset.url)
+        .filter(|url| url.starts_with("https://www.fab.com/"));
+    open_in_browser(&app, listing.as_deref().unwrap_or(FAB_LIBRARY_URL))
 }
 
 fn open_in_browser(app: &AppHandle, url: &str) -> Result<()> {
@@ -828,4 +857,56 @@ pub fn added_assets(state: State<'_, AppState>) -> Result<Vec<AddedView>> {
 pub fn forget_project(uproject: PathBuf) -> Result<()> {
     RecentProjects::load()?.forget(&uproject)?;
     Ok(())
+}
+
+/// Ce qu'a fait le retrait d'un asset, pour la phrase sous le projet.
+#[derive(Serialize)]
+pub struct RemovalView {
+    deleted: usize,
+    shared: usize,
+    missing: usize,
+}
+
+impl From<Removal> for RemovalView {
+    fn from(r: Removal) -> Self {
+        Self {
+            deleted: r.deleted,
+            shared: r.shared,
+            missing: r.missing,
+        }
+    }
+}
+
+/// Le même fichier, même écrit autrement (lien symbolique, `..`).
+fn same_file(a: &Path, b: &Path) -> bool {
+    a == b || matches!((a.canonicalize(), b.canonicalize()), (Ok(a), Ok(b)) if a == b)
+}
+
+/// Retire un asset d'un projet : ses fichiers, puis sa fiche. Refusé tant qu'un ajout de
+/// ce même asset à ce projet est dans la file : il réécrirait les fichiers derrière nous.
+#[tauri::command]
+pub async fn remove_asset(
+    queue: State<'_, Queue>,
+    uproject: PathBuf,
+    asset_id: String,
+) -> Result<RemovalView> {
+    let project = UnrealProject::open(&uproject)?;
+    let pending = queue.snapshot().into_iter().any(|job| {
+        let unfinished = !matches!(job.status, Status::Done { .. } | Status::Failed { .. });
+        let same = matches!(&job.request, Request::AddToProject { asset_id: a, uproject: u, .. }
+            if *a == asset_id && same_file(u, &project.uproject));
+        unfinished && same
+    });
+    if pending {
+        return Err(Error::Msg(
+            "cet asset est dans la file pour ce projet : retire-le de la file d'abord".into(),
+        ));
+    }
+    // Des milliers de fichiers à effacer : hors du fil de l'interface.
+    let removal = tauri::async_runtime::spawn_blocking(move || {
+        ProjectAssets::load(&project.dir).remove(&asset_id)
+    })
+        .await
+        .map_err(|e| Error::Msg(format!("retrait interrompu : {e}")))??;
+    Ok(removal.into())
 }

@@ -69,6 +69,14 @@ export default function App() {
         void loadAdded();
     }
 
+    // Relit la bibliothèque sans vider la liste. Une erreur remonte à la Bibliothèque,
+    // qui l'affiche dans son en-tête.
+    async function reloadLibrary() {
+        setAssets(await api.library());
+        setLoadError(null);
+        void loadAdded();
+    }
+
     // Chaque ajout terminé laisse une fiche dans son projet : on relit les fiches.
     const addsDone = jobs.filter(
         (j) => j.request.kind === "addToProject" && j.status.state === "done",
@@ -146,6 +154,7 @@ export default function App() {
                     loading={screen === "loading"}
                     error={loadError}
                     onRetry={loadLibrary}
+                    onReload={reloadLibrary}
                     assets={assets}
                     recent={recent}
                     added={added}

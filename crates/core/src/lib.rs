@@ -25,7 +25,7 @@ pub use engines::{
     InstalledEngine, ListedEngine, UnrealSession, engine_for, engines_dir, extracted_size,
     free_space, installed_engines, launch_editor, uninstall_engine,
 };
-pub use added::{AddedAsset, AssetUpdate, ProjectAssets, update_for};
+pub use added::{AddedAsset, AssetUpdate, ProjectAssets, Removal, update_for};
 
 use directories::ProjectDirs;
 use egs_api::EpicGames;
@@ -36,12 +36,13 @@ use session::SessionStore;
 /// dont il faut copier la valeur `authorizationCode`.
 pub const LOGIN_URL: &str = "https://www.epicgames.com/id/login?redirectUrl=https%3A%2F%2Fwww.epicgames.com%2Fid%2Fapi%2Fredirect%3FclientId%3D34a02cf8f4414e29b15921876da36f9a%26responseType%3Dcode";
 
-/// Bilan d'un téléchargement terminé.
 pub struct DownloadSummary {
     pub files: usize,
     pub bytes: u64,
     /// Dossier où les fichiers ont été écrits
     pub dir: PathBuf,
+    /// Pour la mise à jour d'un asset : les fichiers de l'ancienne version effacés
+    pub removed: usize,
 }
 
 /// Point d'entrée unique vers les services Epic.
@@ -270,9 +271,10 @@ struct Record {
 }
 
 impl Record {
-    /// Range la fiche dans le projet. Les fichiers sont déjà là : si la fiche ne s'écrit
-    /// pas, l'ajout reste réussi, on perd seulement le suivi des mises à jour.
-    fn save(&self, plan: &DownloadPlan, out_dir: &Path) {
+    /// Range la fiche dans le projet, et renvoie le nombre de fichiers de l'ancienne
+    /// version effacés. Les fichiers sont déjà là : si la fiche ne s'écrit pas, l'ajout
+    /// reste réussi, on perd seulement le suivi des mises à jour.
+    fn save(&self, plan: &DownloadPlan, out_dir: &Path) -> usize {
         // Un plugin s'écrit dans Plugins/… : les chemins de la fiche partent du projet.
         let prefix = out_dir
             .strip_prefix(&self.project_dir)
@@ -282,8 +284,12 @@ impl Record {
             .file_names()
             .map(|f| prefix.join(f).to_string_lossy().into_owned())
             .collect();
-        if let Err(e) = ProjectAssets::load(&self.project_dir).record(added) {
-            log::warn!("fiche de « {} » non enregistrée : {e}", self.added.title);
+        match ProjectAssets::load(&self.project_dir).record(added) {
+            Ok(removal) => removal.deleted,
+            Err(e) => {
+                log::warn!("fiche de « {} » non enregistrée : {e}", self.added.title);
+                0
+            }
         }
     }
 }
@@ -307,10 +313,17 @@ impl PreparedDownload {
         }
         tokio::fs::remove_dir_all(&cache).await?;
 
+        let removed = match &self.record {
+            Some(record) => record.save(&self.plan, &self.out_dir),
+            None => 0,
+        };
+        tokio::fs::remove_dir_all(&cache).await?;
+
         Ok(DownloadSummary {
             files: self.plan.file_count(),
             bytes: self.plan.install_size(),
             dir: self.out_dir.clone(),
+            removed,
         })
     }
 }

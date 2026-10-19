@@ -47,6 +47,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::session,
             commands::open_login_page,
+            commands::open_fab,
             commands::login,
             commands::logout,
             commands::library,
@@ -59,6 +60,7 @@ pub fn run() {
             commands::clear_finished,
             commands::recent_projects,
             commands::forget_project,
+            commands::remove_asset,
             commands::added_assets,
             commands::local_engines,
             commands::cached_engines,

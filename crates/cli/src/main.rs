@@ -6,8 +6,9 @@ use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use indicatif::{ProgressBar, ProgressStyle};
 use uehub_core::{
-    AssetKind, DownloadSummary, EpicClient, FabAsset, LOGIN_URL, Progress, RecentProjects,
-    UnrealProject, find_assets, folder_name, parse_version, pick_for_project, pick_version,
+    AssetKind, DownloadSummary, EpicClient, FabAsset, LOGIN_URL, Progress, ProjectAssets,
+    RecentProjects, UnrealProject, find_assets, folder_name, parse_version, pick_for_project,
+    pick_version,
 };
 
 #[derive(Parser)]
@@ -56,6 +57,13 @@ enum Command {
         /// Nombre de chunks téléchargés en parallèle
         #[arg(long, default_value_t = 8)]
         jobs: usize,
+    },
+    /// Retire d'un projet un asset ajouté par uehub : ses fichiers, puis sa fiche
+    Remove {
+        /// Titre, morceau de titre ou asset_id, parmi les assets ajoutés au projet
+        query: String,
+        /// Chemin du fichier .uproject
+        project: PathBuf,
     },
     /// Les moteurs Unreal précompilés pour Linux : installés et proposés par Epic
     Engines {
@@ -189,9 +197,57 @@ async fn main() -> Result<()> {
             bar.finish_and_clear();
             print_summary(&summary);
 
+            if summary.removed > 0 {
+                println!(
+                    "{} fichier(s) de l'ancienne version effacé(s).",
+                    summary.removed
+                );
+            }
+
             // Pour que ce projet apparaisse aussi dans l'app.
             if let Ok(mut recent) = RecentProjects::load() {
                 let _ = recent.remember(&project.uproject);
+            }
+        }
+        Command::Remove { query, project } => {
+            let project = UnrealProject::open(&project)
+                .with_context(|| format!("impossible d'ouvrir {}", project.display()))?;
+            // On cherche dans les fiches du projet : pas besoin d'Epic ni de réseau.
+            let mut assets = ProjectAssets::load(&project.dir);
+            let q = query.to_lowercase();
+            let found: Vec<_> = assets
+                .list()
+                .iter()
+                .filter(|a| a.asset_id == query || a.title.to_lowercase().contains(&q))
+                .map(|a| (a.asset_id.clone(), a.title.clone()))
+                .collect();
+            let (asset_id, title) = match found.as_slice() {
+                [one] => one.clone(),
+                [] => bail!(
+                    "aucun asset ajouté par uehub ne correspond à « {query} » dans {}",
+                    project.name
+                ),
+                many => bail!(
+                    "plusieurs assets correspondent, précise : {}",
+                    many.iter()
+                        .map(|(_, t)| t.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ),
+            };
+            let removal = assets.remove(&asset_id)?;
+            println!(
+                "« {title} » retiré de {} : {} fichier(s) effacé(s).",
+                project.name, removal.deleted
+            );
+            if removal.shared > 0 {
+                println!(
+                    "{} fichier(s) gardé(s) : un autre asset du projet les utilise aussi.",
+                    removal.shared
+                );
+            }
+            if removal.missing > 0 {
+                println!("{} fichier(s) étaient déjà absents.", removal.missing);
             }
         }
         Command::Engines { action: None } => engines::list(&mut client).await?,

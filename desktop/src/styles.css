@@ -394,6 +394,24 @@ input::placeholder {
     font-stretch: 87.5%;
 }
 
+.screen-head button.quiet {
+    padding: 4px 6px;
+}
+
+/* La place de « Rechargement… » : l'en-tête ne bouge pas pendant le rechargement. */
+.screen-head .reload {
+    min-width: 9em;
+    text-align: left;
+}
+
+/* Le rechargement ou l'ouverture de Fab a échoué : une ligne sous l'en-tête. */
+.head-error {
+    flex-basis: 100%;
+    margin: 0;
+    font-size: 12px;
+    color: var(--danger);
+}
+
 .search {
     flex: 1 1 240px;
     max-width: 420px;
@@ -756,6 +774,42 @@ input::placeholder {
     padding: 0 2px 4px;
     font-size: 12px;
     color: var(--muted);
+}
+
+/* « Retirer du projet », au bout de la phrase sous le projet : discret, mais souligné. */
+.fit .inline-action {
+    margin-left: 6px;
+    padding: 0;
+    font-size: 12px;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+/* La confirmation remplace la phrase : le texte, puis Supprimer et Annuler. */
+.confirm {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
+    padding: 2px 2px 4px;
+    font-size: 12px;
+}
+
+.confirm span {
+    flex-basis: 100%;
+}
+
+.confirm button {
+    padding: 3px 10px;
+    font-size: 12px;
+}
+
+/* « Voir sur Fab » au bout de la ligne du type d'asset. */
+.kind .fab-link {
+    margin-left: auto;
+    padding: 2px 4px;
+    font-size: 12px;
 }
 
 /* ---------- Moteurs : projets, disque, grille, inspecteur ---------- */
