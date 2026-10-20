@@ -118,7 +118,7 @@ export interface EngineCatalog {
     engines: AvailableEngine[];
 }
 
-// Cette copie de uehub (AppInfo dans update.rs).
+// Cette copie de uehub (AppInfo dans updates).
 export interface AppInfo {
     version: string;
     // Le paquet d'où vient uehub : il se met à jour seul. null : par le gestionnaire de paquets
@@ -127,7 +127,7 @@ export interface AppInfo {
     dev: boolean;
 }
 
-// Une version plus récente, publiée sur GitHub Releases (UpdateInfo dans update.rs).
+// Une version plus récente, publiée sur GitHub Releases (UpdateInfo dans updates).
 export interface UpdateInfo {
     version: string;
     date: string | null;
@@ -145,6 +145,10 @@ export interface LocalEngine {
     dir: string;
     // Installé par uehub : on peut le désinstaller d'ici
     byUehub: boolean;
+    // La version plus récente de sa branche chez Epic : "5.8.4" pour une 5.8.3
+    update: string | null;
+    // Un moteur plus récent de sa branche est installé : il ouvre les projets à sa place
+    replacedBy: string | null;
 }
 
 export const api = {

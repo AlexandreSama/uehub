@@ -1,7 +1,9 @@
 // L'inspecteur de l'écran Moteurs : la version choisie dans la grille. Installée, on
-// la lance ; dans la file, on suit son avancement et sa vitesse ; sinon, on voit la
-// place qu'elle prendra avant de l'installer.
+// la lance, et on voit si une plus récente de sa branche est sortie ; dans la file, on
+// suit son avancement et sa vitesse ; sinon, on voit la place qu'elle prendra avant de
+// l'installer.
 import {
+    branchOf,
     formatBytes,
     formatDay,
     formatDuration,
@@ -19,12 +21,18 @@ import { ProgressBar, SpeedGraph } from "./Common";
 interface Props {
     engine: AvailableEngine | undefined;
     installed: LocalEngine | undefined;
+    // La version plus récente de la même branche, si celle-ci est installée et en a une
+    newer: AvailableEngine | undefined;
+    // Son installation dans la file, s'il y en a une
+    newerJob: QueueJob | undefined;
     job: QueueJob | undefined;
     rate: Rate | undefined;
     folder: string;
     // Place libre dans le dossier des moteurs, `null` tant qu'on ne la connaît pas
     free: number | null;
     onInstall: (version: string) => void;
+    // Choisir une autre version dans la grille
+    onSelect: (version: string) => void;
     onLaunch: (engine: LocalEngine) => void;
     onPause: (id: number) => void;
     onResume: (id: number) => void;
@@ -50,26 +58,77 @@ export default function EngineInspector(props: Props) {
                 )}
             </div>
             {installed ? (
-                <section className="block">
-                    <h3>Sur ce disque</h3>
-                    <p className="path" title={installed.dir}>
-                        {tilde(installed.dir)}
-                    </p>
-                    <div className="buttons">
-                        <button
-                            className="primary"
-                            onClick={() => props.onLaunch(installed)}
-                        >
-                            Lancer
-                        </button>
-                    </div>
-                </section>
+                <>
+                    <section className="block">
+                        <h3>Sur ce disque</h3>
+                        <p className="path" title={installed.dir}>
+                            {tilde(installed.dir)}
+                        </p>
+                        <div className="buttons">
+                            <button
+                                className={installed.update ? undefined : "primary"}
+                                onClick={() => props.onLaunch(installed)}
+                            >
+                                Lancer
+                            </button>
+                        </div>
+                        {installed.replacedBy && (
+                            <p className="muted">
+                                La {installed.replacedBy} est installée : uehub ouvre maintenant
+                                tes projets {branchOf(installed.replacedBy)} avec elle.
+                                {installed.byUehub &&
+                                    " Tu peux désinstaller celle-ci depuis la liste, pour libérer sa place."}
+                            </p>
+                        )}
+                    </section>
+                    {installed.update && (
+                        <UpdateBlock
+                            {...props}
+                            installed={installed}
+                            version={installed.update}
+                        />
+                    )}
+                </>
             ) : job ? (
                 <JobBlock {...props} job={job} />
             ) : (
                 <InstallBlock {...props} engine={engine} />
             )}
         </aside>
+    );
+}
+
+// Epic a publié une version plus récente de la même branche : elle s'installe à côté.
+function UpdateBlock(
+    props: Props & { installed: LocalEngine; version: string },
+) {
+    const { installed, version, newer, newerJob, onInstall, onSelect } = props;
+    return (
+        <section className="block">
+            <h3>Mise à jour</h3>
+            <p>
+                La {version} est sortie
+                {newer?.date && ` le ${formatDay(newer.date)}`}. Elle s'installe à côté
+                de la {installed.version}, et uehub ouvrira ensuite tes projets{" "}
+                {branchOf(version)} avec elle.
+            </p>
+            <div className="buttons">
+                {newerJob ? (
+                    <button onClick={() => onSelect(version)}>
+                        Suivre l'installation
+                    </button>
+                ) : (
+                    <>
+                        <button className="primary" onClick={() => onInstall(version)}>
+                            Installer {version}
+                        </button>
+                        <button className="quiet" onClick={() => onSelect(version)}>
+                            Voir la {version}
+                        </button>
+                    </>
+                )}
+            </div>
+        </section>
     );
 }
 

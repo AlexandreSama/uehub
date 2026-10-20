@@ -1,5 +1,5 @@
 // La mise à jour de uehub : la version installée, celle qui est publiée, et son installation.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     api,
     formatBytes,
@@ -7,6 +7,7 @@ import {
     type UpdateInfo,
     type UpdateProgress,
 } from "./api";
+import { RECHECK_MS, useTick } from "./recheck";
 
 export interface AppUpdate {
     app: AppInfo | null;
@@ -31,15 +32,37 @@ export function useAppUpdate(): AppUpdate {
     const [message, setMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    // Au démarrage, une recherche silencieuse : hors ligne, on n'affiche rien.
+    // La dernière recherche, silencieuse ou à la main
+    const lastCheck = useRef(0);
+
+    // Une recherche silencieuse : hors ligne, on n'affiche rien et on garde ce qu'on sait.
+    async function quietCheck() {
+        lastCheck.current = Date.now();
+        try {
+            setAvailable(await api.checkUpdate());
+        } catch {
+            // Hors ligne : on réessaiera dans quatre heures.
+        }
+    }
+
+    // Au démarrage, une première recherche.
     useEffect(() => {
         api.appInfo().then((info) => {
             setApp(info);
-            if (info.package) api.checkUpdate().then(setAvailable, () => {});
+            if (info.package) void quietCheck();
         });
     }, []);
 
+    // Puis une toutes les quatre heures tant que l'app reste ouverte, sauf pendant
+    // l'installation d'une mise à jour.
+    useTick(() => {
+        if (!app?.package || progress) return;
+        if (Date.now() - lastCheck.current < RECHECK_MS) return;
+        void quietCheck();
+    });
+
     async function check() {
+        lastCheck.current = Date.now();
         setChecking(true);
         setMessage(null);
         try {

@@ -7,6 +7,7 @@ use anyhow::{Result, bail};
 use indicatif::{ProgressBar, ProgressStyle};
 use uehub_core::{
     Downloaded, EULA_URL, EngineInstall, EpicClient, InstallProgress, installed_engines,
+    replaced_by,
 };
 
 /// `uehub engines` : les moteurs installés, puis ceux qu'Epic propose.
@@ -18,7 +19,11 @@ pub async fn list(client: &mut EpicClient) -> Result<()> {
     }
     for engine in &installed {
         let version = engine.version.as_deref().unwrap_or("?");
-        println!("  UE {version:<8} {}", engine.dir.display());
+        // Un plus récent de la même branche est là : celui-ci peut partir.
+        let replaced = replaced_by(version, &installed)
+            .map(|newer| format!("   (remplacé par {newer})"))
+            .unwrap_or_default();
+        println!("  UE {version:<8} {}{replaced}", engine.dir.display());
     }
 
     let session = client.open_unreal_session().await?;
@@ -28,7 +33,8 @@ pub async fn list(client: &mut EpicClient) -> Result<()> {
         return Ok(());
     }
     println!("\nMoteurs proposés par Epic :");
-    for engine in session.engine_list().await?.engines {
+    let list = session.engine_list().await?;
+    for engine in &list.engines {
         let day = engine.created_at.as_deref().and_then(|d| d.get(..10));
         let mark = if installed
             .iter()
@@ -44,6 +50,24 @@ pub async fn list(client: &mut EpicClient) -> Result<()> {
             gigabytes(engine.size),
             day.unwrap_or("")
         );
+    }
+    
+    // Les correctifs sortis pour les moteurs installés, avec la commande qui les installe.
+    let updates: Vec<_> = installed
+        .iter()
+        .filter_map(|e| {
+            let version = e.version.as_deref()?;
+            Some((version, list.update_for(version, &installed)?))
+        })
+        .collect();
+    if !updates.is_empty() {
+        println!("\nMises à jour :");
+        for (version, update) in updates {
+            println!(
+                "  UE {version} → {}   uehub engines install {}",
+                update.version, update.version
+            );
+        }
     }
     println!("\nPour en installer un : uehub engines install 5.8.3");
     Ok(())

@@ -6,6 +6,7 @@ mod page;
 mod session;
 mod launch;
 mod cache;
+mod updates;
 
 pub use install::{
     Downloaded, EngineInstall, InstallProgress, InstalledEngine, engines_dir, extracted_size,
@@ -13,6 +14,7 @@ pub use install::{
 };
 pub use launch::{engine_for, launch_editor};
 pub use session::UnrealSession;
+pub use updates::replaced_by;
 pub use cache::{EngineList, ListedEngine};
 
 use crate::CoreError;

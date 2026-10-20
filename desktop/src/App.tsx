@@ -16,6 +16,7 @@ import Library from "./components/Library";
 import Engines from "./components/Engines";
 import QueueDock from "./components/QueueDock";
 import QueueDrawer from "./components/QueueDrawer";
+import { useEngines } from "./engines";
 
 type Screen = "starting" | "login" | "loading" | "library";
 
@@ -32,6 +33,9 @@ export default function App() {
     const [queueOpen, setQueueOpen] = useState(false);
     const rates = useTransferRates(jobs);
     const update = useAppUpdate();
+    // Les moteurs et leurs mises à jour : la liste d'Epic se relit en arrière-plan une fois
+    // la bibliothèque chargée
+    const engines = useEngines(screen === "library", jobs);
 
     async function loadRecent() {
         try {
@@ -146,9 +150,10 @@ export default function App() {
                 onLogout={handleLogout}
                 update={update}
                 queueBusy={queueBusy}
+                engineUpdates={engines.updates.length}
             />
             {view === "engines" ? (
-                <Engines jobs={jobs} rates={rates} />
+                <Engines engines={engines} jobs={jobs} rates={rates} />
             ) : (
                 <Library
                     loading={screen === "loading"}

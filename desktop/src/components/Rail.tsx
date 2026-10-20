@@ -15,10 +15,13 @@ interface Props {
     update: AppUpdate;
     // Des téléchargements tournent : le redémarrage les arrêtera
     queueBusy: boolean;
+    // Les moteurs installés dont Epic propose une version plus récente
+    engineUpdates: number;
 }
 
 export default function Rail(props: Props) {
-    const { view, onView, account, onLogout, update, queueBusy } = props;
+    const { view, onView, account, onLogout, update, queueBusy, engineUpdates } =
+        props;
     return (
         <nav className="rail" aria-label="Écrans">
             <span className="wordmark">uehub</span>
@@ -37,6 +40,14 @@ export default function Rail(props: Props) {
             >
                 <EngineIcon />
                 Moteurs
+                {engineUpdates > 0 && (
+                    <span className="rail-count">
+            {engineUpdates}
+                        <span className="sr-only">
+              {engineUpdates > 1 ? " mises à jour" : " mise à jour"}
+            </span>
+          </span>
+                )}
             </button>
             <div className="rail-foot">
                 {update.available && (

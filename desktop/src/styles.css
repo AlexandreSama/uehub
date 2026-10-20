@@ -303,6 +303,28 @@ input::placeholder {
     color: var(--text);
 }
 
+/* Le nombre de moteurs à mettre à jour, sur l'icône de Moteurs. */
+.rail-button {
+    position: relative;
+}
+
+.rail-count {
+    position: absolute;
+    top: 5px;
+    left: 36px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: 10px;
+    font-weight: 700;
+    font-stretch: 100%;
+    line-height: 16px;
+    text-align: center;
+}
+
 .account {
     position: relative;
 }
@@ -943,6 +965,36 @@ table {
     height: 48px;
     padding: 6px 10px;
     border-bottom: 1px solid var(--row);
+}
+
+/* Un moteur suivi d'une note : la ligne et sa note ne font qu'un. */
+.installed tr.noted td {
+    height: 40px;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.installed .engine-note-row td {
+    height: auto;
+    padding: 0 10px 10px;
+}
+
+.engine-note {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    font-size: 13px;
+}
+
+/* L'ambre de ce qui attend une action, comme sur le rail. */
+.engine-note.update {
+    color: var(--accent);
+}
+
+.engine-note button {
+    padding: 3px 10px;
+    font-size: 12px;
 }
 
 .engine-version {

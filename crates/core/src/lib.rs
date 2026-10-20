@@ -23,7 +23,7 @@ pub use recent::RecentProjects;
 pub use engines::{
     Downloaded, EULA_URL, EngineDownload, EngineInstall, EngineList, InstallProgress,
     InstalledEngine, ListedEngine, UnrealSession, engine_for, engines_dir, extracted_size,
-    free_space, installed_engines, launch_editor, uninstall_engine,
+    free_space, installed_engines, launch_editor, replaced_by, uninstall_engine,
 };
 pub use added::{AddedAsset, AssetUpdate, ProjectAssets, Removal, update_for};
 

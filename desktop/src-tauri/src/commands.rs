@@ -14,7 +14,8 @@ use uehub_core::{
     EngineInstall, EngineList, EpicClient, FabAsset, InstallProgress, InstalledEngine, LOGIN_URL,
     PreparedDownload, Progress, ProjectAssets, ProjectVersion, RecentProjects, Removal,
     UnrealProject, UnrealSession, engine_for, engines_dir, extracted_size, folder_name,
-    installed_engines, launch_editor, parse_version, pick_for_project, pick_version, update_for,
+    installed_engines, launch_editor, parse_version, pick_for_project, pick_version, replaced_by,
+    update_for,
 };
 
 use crate::queue::{Job, Queue, Request, Status};
@@ -231,6 +232,11 @@ pub struct LocalEngine {
     dir: String,
     /// Installé par uehub : l'écran propose de le désinstaller
     by_uehub: bool,
+    /// La version plus récente de sa branche qu'Epic propose : "5.8.4" pour une 5.8.3
+    update: Option<String>,
+    /// Un moteur plus récent de sa branche est déjà installé : il ouvre les projets à
+    /// sa place
+    replaced_by: Option<String>,
 }
 
 /// La liste telle que l'écran l'affiche : le jour de mise en ligne, et la place
@@ -697,18 +703,37 @@ pub fn clear_finished(queue: State<'_, Queue>) {
 // Moteurs
 // ---------------------------------------------------------------------------
 
-/// Les moteurs enregistrés dans Install.ini, du plus récent au plus ancien.
+/// Les moteurs enregistrés dans Install.ini, du plus récent au plus ancien. Leurs mises
+/// à jour viennent de la dernière liste d'Epic gardée sur le disque : pas de réseau.
 #[tauri::command]
 pub fn local_engines() -> Result<Vec<LocalEngine>> {
-    let engines = installed_engines()?
-        .into_iter()
-        .map(|e| LocalEngine {
-            version: e.version,
-            dir: e.dir.display().to_string(),
-            by_uehub: e.by_uehub,
+    Ok(local_view(
+        &installed_engines()?,
+        EngineList::load().as_ref(),
+    ))
+}
+
+/// Chaque moteur installé, sa mise à jour et celui qui le remplace. Sans liste d'Epic
+/// (premier passage, CLUF refusé), pas de mise à jour à signaler.
+fn local_view(installed: &[InstalledEngine], list: Option<&EngineList>) -> Vec<LocalEngine> {
+    installed
+        .iter()
+        .map(|e| {
+            let version = e.version.as_deref();
+            LocalEngine {
+                update: version
+                    .zip(list)
+                    .and_then(|(v, list)| list.update_for(v, installed))
+                    .map(|newer| newer.version.clone()),
+                replaced_by: version
+                    .and_then(|v| replaced_by(v, installed))
+                    .map(String::from),
+                version: e.version.clone(),
+                dir: e.dir.display().to_string(),
+                by_uehub: e.by_uehub,
+            }
         })
-        .collect();
-    Ok(engines)
+        .collect()
 }
 
 /// La dernière liste d'Epic gardée sur le disque : elle s'affiche sans attendre le
