@@ -13,9 +13,6 @@
   <a href="README.md">English</a> · Français
 </p>
 
-> [!NOTE]
-> La première version arrive bientôt. En attendant, [compile uehub toi-même](#compiler-uehub).
-
 <p align="center">
   <img src="docs/screenshots/library-fr.png" alt="La bibliothèque de uehub : les assets Fab à gauche, Megascans: Grass choisi, avec les projets Unreal où l'ajouter">
 </p>

@@ -13,9 +13,6 @@
   English · <a href="README.fr.md">Français</a>
 </p>
 
-> [!NOTE]
-> The first release is on its way. Until it's out, [build uehub from source](#build-from-source).
-
 <p align="center">
   <img src="docs/screenshots/library-en.png" alt="The uehub library: Fab assets on the left, Megascans: Grass selected, with the Unreal projects it can be added to">
 </p>

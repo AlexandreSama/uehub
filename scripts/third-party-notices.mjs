@@ -73,5 +73,8 @@ ${npm}## Rust crates
 ${rust}`;
 
 if (!existsSync(join(root, "LICENSE"))) throw new Error("LICENSE introuvable");
-writeFileSync(join(root, "THIRD-PARTY-NOTICES.md"), notices.trimEnd() + "\n");
+// Quelques licences arrivent avec des fins de ligne Windows : le fichier n'en garde
+// aucune, pour qu'un éditeur ou Git ne le modifie pas dans le dos du script.
+const text = notices.replace(/\r\n?/g, "\n").trimEnd() + "\n";
+writeFileSync(join(root, "THIRD-PARTY-NOTICES.md"), text);
 console.log("THIRD-PARTY-NOTICES.md écrit");

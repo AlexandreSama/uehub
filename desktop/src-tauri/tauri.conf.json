@@ -72,7 +72,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "COLLE ICI LE CONTENU DE ~/.tauri/uehub.key.pub",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDZFODQzNzdGMTMyMjc0NDgKUldSSWRDSVRmemVFYnF4ZW1sb3BTZ2YzZzZ5bzJkNFFYS0hNaklaSk5CU3FIZWJkU1Bhd3QwNFAK",
       "endpoints": [
         "https://github.com/AlexandreSama/uehub/releases/latest/download/latest.json"
       ],
