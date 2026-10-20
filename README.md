@@ -55,7 +55,7 @@
 ## Install
 
 uehub runs on 64-bit Linux (x86_64). Pick the package for your distribution from the
-[latest release](https://github.com/TON_COMPTE/uehub/releases/latest):
+[latest release](https://github.com/AlexandreSama/uehub/releases/latest):
 
 | Distribution | Package | Updates |
 |---|---|---|
@@ -130,7 +130,7 @@ to GitHub to look for its own updates. Nothing else: no analytics, no telemetry.
 
 Open the account menu (your initial, bottom left) and click **Show the log**: it opens the
 folder with `uehub.log` selected. Attach that file to a
-[new issue](https://github.com/TON_COMPTE/uehub/issues/new) with what you did and what you
+[new issue](https://github.com/AlexandreSama/uehub/issues/new) with what you did and what you
 expected. The log masks tokens, cookies, codes and signed addresses before writing them,
 and replaces your home folder with `~`, so it's safe to share.
 
@@ -157,7 +157,7 @@ These are the lists from [Tauri's prerequisites](https://v2.tauri.app/start/prer
 Then:
 
 ```bash
-git clone https://github.com/TON_COMPTE/uehub.git
+git clone https://github.com/AlexandreSama/uehub.git
 cd uehub/desktop
 npm ci
 npm run tauri dev                      # run the app with live reload

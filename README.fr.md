@@ -58,7 +58,7 @@
 ## Installer uehub
 
 uehub tourne sous Linux 64 bits (x86_64). Prends le paquet de ta distribution dans la
-[dernière version publiée](https://github.com/TON_COMPTE/uehub/releases/latest) :
+[dernière version publiée](https://github.com/AlexandreSama/uehub/releases/latest) :
 
 | Distribution | Paquet | Mises à jour |
 |---|---|---|
@@ -137,7 +137,7 @@ d'autre : pas de statistiques, pas de télémétrie.
 
 Ouvre le menu du compte (ton initiale, en bas à gauche) et clique sur **Afficher le
 journal** : le dossier s'ouvre, `uehub.log` sélectionné. Joins ce fichier à un
-[nouveau ticket](https://github.com/TON_COMPTE/uehub/issues/new), avec ce que tu as fait
+[nouveau ticket](https://github.com/AlexandreSama/uehub/issues/new), avec ce que tu as fait
 et ce que tu attendais. Le journal masque les jetons, les cookies, les codes et les
 adresses signées avant de les écrire, et remplace ton dossier personnel par `~` : tu
 peux le partager sans risque.
@@ -164,7 +164,7 @@ Ce sont les listes des [prérequis de Tauri](https://v2.tauri.app/fr/start/prere
 Ensuite :
 
 ```bash
-git clone https://github.com/TON_COMPTE/uehub.git
+git clone https://github.com/AlexandreSama/uehub.git
 cd uehub/desktop
 npm ci
 npm run tauri dev                      # l'app, rechargée à chaque modification

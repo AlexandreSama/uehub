@@ -10,8 +10,8 @@ rust-version = "1.90"
 authors = ["DjinnSama"]
 # Une licence à soi, sans identifiant SPDX : Cargo la désigne par son fichier.
 license-file = "LICENSE"
-homepage = "https://github.com/TON_COMPTE/uehub"
-repository = "https://github.com/TON_COMPTE/uehub"
+homepage = "https://github.com/AlexandreSama/uehub"
+repository = "https://github.com/AlexandreSama/uehub"
 # uehub ne se publie pas sur crates.io : cargo publish refusera.
 publish = false
 

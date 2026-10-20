@@ -1,14 +1,14 @@
 // Écrit latest.json, le fichier que lit la mise à jour intégrée de uehub, à partir des
 // paquets signés que vient de fabriquer `npm run tauri build`.
 //
-// Usage, depuis desktop/ : node scripts/latest-json.mjs TON_COMPTE/uehub "Ce qui change"
+// Usage, depuis desktop/ : node scripts/latest-json.mjs AlexandreSama/uehub "Ce qui change"
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const [repo, notes = ""] = process.argv.slice(2);
 if (!repo) {
   console.error(
-    'Usage : node scripts/latest-json.mjs TON_COMPTE/uehub "notes"',
+    'Usage : node scripts/latest-json.mjs AlexandreSama/uehub "notes"',
   );
   process.exit(1);
 }

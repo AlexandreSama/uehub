@@ -74,7 +74,7 @@
     "updater": {
       "pubkey": "COLLE ICI LE CONTENU DE ~/.tauri/uehub.key.pub",
       "endpoints": [
-        "https://github.com/TON_COMPTE/uehub/releases/latest/download/latest.json"
+        "https://github.com/AlexandreSama/uehub/releases/latest/download/latest.json"
       ],
       "requireSignedVersion": true
     }

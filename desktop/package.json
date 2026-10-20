@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri",
+    "tauri": "__NV_DISABLE_EXPLICIT_SYNC=1 tauri",
     "test": "vitest run"
   },
   "dependencies": {
