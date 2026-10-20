@@ -51,7 +51,7 @@ pub async fn list(client: &mut EpicClient) -> Result<()> {
             day.unwrap_or("")
         );
     }
-    
+
     // Les correctifs sortis pour les moteurs installés, avec la commande qui les installe.
     let updates: Vec<_> = installed
         .iter()

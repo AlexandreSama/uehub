@@ -1,4 +1,6 @@
 //! Lecture d'un projet Unreal (.uproject) et de la version du moteur associé.
+#[cfg(test)]
+mod tests;
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -25,6 +27,13 @@ pub struct UnrealProject {
 
 impl UnrealProject {
     pub fn open(uproject: &Path) -> Result<Self> {
+        // ~/.config/Epic/UnrealEngine/Install.ini, où sont enregistrés les moteurs
+        let ini = BaseDirs::new().map(|d| d.config_dir().join("Epic/UnrealEngine/Install.ini"));
+        Self::open_with(uproject, ini.as_deref())
+    }
+
+    /// Comme `open`, avec l'Install.ini qu'on lui donne : les tests ne lisent pas le tien.
+    fn open_with(uproject: &Path, install_ini: Option<&Path>) -> Result<Self> {
         let path = fs::canonicalize(uproject)?;
         let json: serde_json::Value = serde_json::from_str(&fs::read_to_string(&path)?)?;
         let association = json["EngineAssociation"].as_str().unwrap_or("").trim();
@@ -42,7 +51,8 @@ impl UnrealProject {
         // 3. "" : projet rangé à l'intérieur de l'arborescence du moteur
         let engine = parse_version(association)
             .or_else(|| {
-                engine_root_from_install_ini(association).and_then(|d| read_build_version(&d))
+                let root = engine_root_from_install_ini(install_ini?, association)?;
+                read_build_version(&root)
             })
             .or_else(|| {
                 if association.is_empty() {
@@ -75,15 +85,12 @@ pub fn parse_version(v: &str) -> Option<(u32, u32)> {
     Some((major, minor))
 }
 
-/// Cherche le dossier du moteur dans ~/.config/Epic/UnrealEngine/Install.ini.
-fn engine_root_from_install_ini(guid: &str) -> Option<PathBuf> {
+/// Cherche le dossier du moteur dans Install.ini.
+fn engine_root_from_install_ini(ini: &Path, guid: &str) -> Option<PathBuf> {
     let wanted = guid.trim_matches(['{', '}']).to_lowercase();
     if wanted.is_empty() {
         return None;
     }
-    let ini = BaseDirs::new()?
-        .config_dir()
-        .join("Epic/UnrealEngine/Install.ini");
     let text = fs::read_to_string(ini).ok()?;
 
     let mut in_section = false;

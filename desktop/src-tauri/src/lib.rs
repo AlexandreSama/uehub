@@ -3,8 +3,8 @@
 mod commands;
 mod notify;
 mod queue;
-mod thumbs;
 mod settings;
+mod thumbs;
 mod update;
 
 use tauri::Manager;

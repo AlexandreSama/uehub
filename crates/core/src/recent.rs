@@ -1,6 +1,8 @@
 //! Les projets Unreal utilisés récemment, partagés par la CLI et l'app.
 //! Rangés dans ~/.local/share/uehub/recent_projects.json.
 
+#[cfg(test)]
+mod tests;
 use std::path::{Path, PathBuf};
 
 use directories::ProjectDirs;

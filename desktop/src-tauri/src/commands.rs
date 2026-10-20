@@ -1,5 +1,8 @@
 //! Les commandes que l'interface React appelle avec `invoke`.
 //! Elles traduisent les types du core en JSON simple pour TypeScript.
+//!
+#[cfg(test)]
+mod tests;
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex as StdMutex;
@@ -75,7 +78,6 @@ pub enum Error {
     #[error("{0}")]
     Msg(String),
 }
-
 
 impl Serialize for Error {
     fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
@@ -931,7 +933,7 @@ pub async fn remove_asset(
     let removal = tauri::async_runtime::spawn_blocking(move || {
         ProjectAssets::load(&project.dir).remove(&asset_id)
     })
-        .await
-        .map_err(|e| Error::Msg(format!("retrait interrompu : {e}")))??;
+    .await
+    .map_err(|e| Error::Msg(format!("retrait interrompu : {e}")))??;
     Ok(removal.into())
 }

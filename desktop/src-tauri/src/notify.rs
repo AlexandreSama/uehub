@@ -1,5 +1,8 @@
 //! Les notifications de bureau : une à la fin de chaque job, quand tu ne regardes pas l'app.
 
+#[cfg(test)]
+mod tests;
+
 use tauri::{AppHandle, Manager};
 use tauri_plugin_notification::NotificationExt;
 

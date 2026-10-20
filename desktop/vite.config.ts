@@ -1,12 +1,16 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-// @ts-expect-error type error without @types/node package
 import process from "node:process";
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
 export default defineConfig(() => ({
   plugins: [react()],
+    // npm test : les tests de l'interface tournent dans happy-dom, un faux navigateur
+    test: {
+        environment: "happy-dom",
+    },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

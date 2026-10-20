@@ -8,6 +8,9 @@
 //! 5. unrealengine.com demande une « connexion silencieuse » : on suit l'adresse qu'il
 //!    indique, et il pose son propre cookie de session.
 
+#[cfg(test)]
+mod tests;
+
 use std::sync::Arc;
 
 use reqwest::cookie::{CookieStore, Jar};
@@ -180,10 +183,17 @@ impl UnrealSession {
     /// La liste des moteurs proposés, sans les adresses de téléchargement. Elle est
     /// gardée sur le disque : le prochain affichage n'aura pas à attendre Epic.
     pub async fn engine_list(&self) -> Result<EngineList> {
-        let downloads = self.engine_downloads().await?;
-        let list = EngineList::checked_now(downloads.iter().map(ListedEngine::from).collect());
+        let list = self.read_engine_list().await?;
         list.save();
         Ok(list)
+    }
+
+    /// La même liste, sans la garder : les tests la lisent sans toucher à ton cache.
+    async fn read_engine_list(&self) -> Result<EngineList> {
+        let downloads = self.engine_downloads().await?;
+        Ok(EngineList::checked_now(
+            downloads.iter().map(ListedEngine::from).collect(),
+        ))
     }
 
     /// Les zip du moteur proposés par la page Linux, du plus récent au plus ancien.

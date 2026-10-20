@@ -1,31 +1,35 @@
 //! Cœur de l'application : tout ce qui parle à Epic et touche au disque.
 //! Aucune dépendance d'interface ici : la CLI et l'app Tauri partagent ce code.
 
+mod added;
 mod download;
 mod engines;
 mod error;
 mod project;
-mod session;
-mod thumbs;
 mod recent;
-mod added;
+mod session;
+#[cfg(test)]
+mod test_support;
+#[cfg(test)]
+mod tests;
+mod thumbs;
 
 use std::path::{Path, PathBuf};
 
+pub use added::{AddedAsset, AssetUpdate, ProjectAssets, Removal, update_for};
 pub use download::{
     DownloadPlan, Progress, find_assets, folder_name, pick_for_project, pick_version,
 };
 pub use egs_api::api::types::fab_library::{FabAsset, ProjectVersion};
-pub use error::{CoreError, Result};
-pub use project::{AssetKind, UnrealProject, parse_version};
-pub use thumbs::ThumbCache;
-pub use recent::RecentProjects;
 pub use engines::{
     Downloaded, EULA_URL, EngineDownload, EngineInstall, EngineList, InstallProgress,
     InstalledEngine, ListedEngine, UnrealSession, engine_for, engines_dir, extracted_size,
     free_space, installed_engines, launch_editor, replaced_by, uninstall_engine,
 };
-pub use added::{AddedAsset, AssetUpdate, ProjectAssets, Removal, update_for};
+pub use error::{CoreError, Result};
+pub use project::{AssetKind, UnrealProject, parse_version};
+pub use recent::RecentProjects;
+pub use thumbs::ThumbCache;
 
 use directories::ProjectDirs;
 use egs_api::EpicGames;

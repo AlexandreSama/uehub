@@ -1,5 +1,8 @@
 //! Les réglages de l'app, rangés dans settings.json à côté de la file (queue.json).
 
+#[cfg(test)]
+mod tests;
+
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};

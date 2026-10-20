@@ -2,6 +2,9 @@
 //! Premier choix : le trousseau système (Secret Service : GNOME Keyring, KWallet…).
 //! Repli : un fichier JSON lisible par toi seul (droits 600) si aucun trousseau ne répond.
 
+#[cfg(test)]
+mod tests;
+
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::os::unix::fs::OpenOptionsExt;

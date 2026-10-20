@@ -1,13 +1,16 @@
 //! Les moteurs Unreal précompilés pour Linux : la liste d'Epic, leur installation,
 //! et les moteurs déjà installés sur la machine.
 
+mod cache;
 mod install;
+mod launch;
 mod page;
 mod session;
-mod launch;
-mod cache;
+#[cfg(test)]
+mod tests;
 mod updates;
 
+pub use cache::{EngineList, ListedEngine};
 pub use install::{
     Downloaded, EngineInstall, InstallProgress, InstalledEngine, engines_dir, extracted_size,
     free_space, installed_engines, uninstall_engine,
@@ -15,7 +18,6 @@ pub use install::{
 pub use launch::{engine_for, launch_editor};
 pub use session::UnrealSession;
 pub use updates::replaced_by;
-pub use cache::{EngineList, ListedEngine};
 
 use crate::CoreError;
 
@@ -44,8 +46,8 @@ fn engine_version(file_name: &str) -> Option<String> {
         .strip_suffix(".zip")?;
     let valid = !version.is_empty()
         && version
-        .split('.')
-        .all(|part| !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit()));
+            .split('.')
+            .all(|part| !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit()));
     valid.then(|| version.to_string())
 }
 

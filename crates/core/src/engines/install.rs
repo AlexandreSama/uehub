@@ -1,6 +1,9 @@
 //! Installer un moteur précompilé : télécharger le zip (avec reprise), l'extraire,
 //! puis l'enregistrer dans ~/.config/Epic/UnrealEngine/Install.ini.
 
+#[cfg(test)]
+mod tests;
+
 use std::fs::{self, File};
 use std::io::{self, BufReader, Read};
 use std::os::unix::fs::{PermissionsExt, symlink};

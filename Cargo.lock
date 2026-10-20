@@ -5323,6 +5323,7 @@ version = "0.2.0"
 dependencies = [
  "directories",
  "egs-api",
+ "flate2",
  "fs4",
  "futures",
  "keyring-core",
@@ -5331,6 +5332,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha1",
+ "tempfile",
  "thiserror 2.0.21",
  "tokio",
  "uuid",
@@ -5352,6 +5354,7 @@ dependencies = [
  "tauri-plugin-notification",
  "tauri-plugin-opener",
  "tauri-plugin-updater",
+ "tempfile",
  "thiserror 2.0.21",
  "tokio",
  "uehub-core",

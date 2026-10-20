@@ -1,6 +1,9 @@
 //! La file d'attente des téléchargements : un seul à la fois, dans l'ordre d'arrivée.
 //! Elle est enregistrée sur le disque ; au lancement, ce qui n'était pas fini revient en pause.
 
+#[cfg(test)]
+mod tests;
+
 use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};

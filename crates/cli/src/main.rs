@@ -1,4 +1,6 @@
 mod engines;
+#[cfg(test)]
+mod tests;
 
 use std::path::PathBuf;
 

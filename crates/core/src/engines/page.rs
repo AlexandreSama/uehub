@@ -5,6 +5,9 @@
 //! "downloadUrl": "https://…" }. Ce JSON est échappé (\" au lieu de ") : on le décode
 //! avant de le lire.
 
+#[cfg(test)]
+mod tests;
+
 use serde::Deserialize;
 
 use super::{EngineDownload, engine_version, version_key};

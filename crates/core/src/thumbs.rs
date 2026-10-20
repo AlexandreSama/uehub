@@ -1,6 +1,9 @@
 //! Cache disque des vignettes Fab : ~/.cache/uehub/thumbs/<SHA-1 de l'URL>.
 //! Une vignette est téléchargée une seule fois, ensuite elle est lue sur le disque.
 
+#[cfg(test)]
+mod tests;
+
 use std::path::PathBuf;
 
 use directories::ProjectDirs;

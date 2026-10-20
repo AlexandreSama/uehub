@@ -1,6 +1,8 @@
 //! Ce que uehub a ajouté à un projet, et en quelle version : une fiche par asset dans
 //! Saved/uehub/assets.json, à l'intérieur du projet. En la comparant à la bibliothèque
 //! Fab, on sait si une version plus récente est sortie.
+#[cfg(test)]
+mod tests;
 
 use std::collections::HashSet;
 use std::io::ErrorKind;
@@ -122,7 +124,7 @@ impl ProjectAssets {
         Self {
             dir: project_dir.to_path_buf(),
             file,
-            assets
+            assets,
         }
     }
 

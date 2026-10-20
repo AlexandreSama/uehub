@@ -1,5 +1,8 @@
 //! Lancer l'éditeur d'un moteur installé, seul ou sur un projet.
 
+#[cfg(test)]
+mod tests;
+
 use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::process::{Command, Stdio};

@@ -5,6 +5,9 @@
 //! paquet, vérifie sa signature et l'installe. Construit autrement (le paquet AUR,
 //! `cargo build`, `tauri dev`), il laisse faire le gestionnaire de paquets.
 
+#[cfg(test)]
+mod tests;
+
 use std::sync::Mutex;
 
 use serde::Serialize;

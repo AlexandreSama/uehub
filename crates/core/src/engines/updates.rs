@@ -4,6 +4,9 @@
 //! récente (5.9) n'est pas une mise à jour : un projet 5.8 ne s'ouvre avec elle qu'après
 //! conversion, et c'est à toi de choisir quand.
 
+#[cfg(test)]
+mod tests;
+
 use super::cache::{EngineList, ListedEngine};
 use super::install::InstalledEngine;
 use super::version_key;

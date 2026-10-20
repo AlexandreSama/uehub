@@ -5,6 +5,9 @@
 //! Les adresses de téléchargement n'y sont pas. Signées et valables une heure, elles ne
 //! servent qu'à l'installation, qui en demande toujours une fraîche à Epic.
 
+#[cfg(test)]
+mod tests;
+
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
