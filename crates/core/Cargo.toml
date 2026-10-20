@@ -18,7 +18,10 @@ directories.workspace = true
 log.workspace = true
 tokio.workspace = true
 futures.workspace = true
-reqwest = { workspace = true, features = ["cookies", "json"] }
+reqwest = { workspace = true, features = ["json"] }
+# La session unrealengine.com, derrière Cloudflare : voir engines/session.rs
+wreq = { workspace = true, features = ["cookies", "json", "gzip", "brotli", "zstd", "deflate"] }
+wreq-util.workspace = true
 sha1.workspace = true
 keyring-core.workspace = true
 zbus-secret-service-keyring-store.workspace = true

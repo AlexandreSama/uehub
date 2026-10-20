@@ -139,14 +139,14 @@ pub enum NetKind {
     Interrupted,
 }
 
-/// Une erreur de reqwest, rangée par type. Son adresse est retirée : elle peut contenir un
-/// code de session ou une signature de téléchargement. Seul le nom du site reste.
+/// Une erreur de reqwest ou de wreq, rangée par type. Son adresse est retirée : elle peut
+/// contenir un code de session ou une signature de téléchargement. Seul le nom du site reste.
 #[derive(Debug)]
 pub struct NetError {
     pub kind: NetKind,
     /// "www.unrealengine.com", sans chemin ni paramètres
     pub host: Option<String>,
-    source: reqwest::Error,
+    source: Box<dyn StdError + Send + Sync>,
 }
 
 impl From<reqwest::Error> for NetError {
@@ -165,13 +165,41 @@ impl From<reqwest::Error> for NetError {
         Self {
             kind,
             host: e.url().and_then(|url| url.host_str()).map(String::from),
-            source: e.without_url(),
+            source: Box::new(e.without_url()),
+        }
+    }
+}
+
+/// La même chose pour wreq, le client de la session unrealengine.com.
+impl From<wreq::Error> for NetError {
+    fn from(e: wreq::Error) -> Self {
+        let kind = if e.is_timeout() {
+            NetKind::Timeout
+        } else if e.is_connect() {
+            NetKind::Offline
+        } else if let Some(status) = e.status() {
+            NetKind::Status(status.as_u16())
+        } else if e.is_decode() {
+            NetKind::Unreadable
+        } else {
+            NetKind::Interrupted
+        };
+        Self {
+            kind,
+            host: e.uri().and_then(|uri| uri.host()).map(String::from),
+            source: Box::new(e.without_uri()),
         }
     }
 }
 
 impl From<reqwest::Error> for CoreError {
     fn from(e: reqwest::Error) -> Self {
+        Self::Net(e.into())
+    }
+}
+
+impl From<wreq::Error> for CoreError {
+    fn from(e: wreq::Error) -> Self {
         Self::Net(e.into())
     }
 }
@@ -192,15 +220,15 @@ impl fmt::Display for NetError {
 
 impl StdError for NetError {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
-        Some(&self.source)
+        Some(self.source.as_ref())
     }
 }
 
 impl NetError {
-    /// Pour le journal : le type, le site, et l'erreur de reqwest avec ses causes.
+    /// Pour le journal : le type, le site, et l'erreur du client HTTP avec ses causes.
     pub fn detail(&self) -> String {
         let host = self.host.as_deref().unwrap_or("?");
-        format!("{:?} {host}: {}", self.kind, causes(&self.source))
+        format!("{:?} {host}: {}", self.kind, causes(self.source.as_ref()))
     }
 }
 

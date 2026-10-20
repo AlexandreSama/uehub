@@ -135,22 +135,24 @@ and replaces your home folder with `~`, so it's safe to share.
 ## Build from source
 
 You'll need [Rust](https://rustup.rs) 1.90 or newer, [Node.js](https://nodejs.org) 22, and
-the libraries Tauri builds against:
+the libraries Tauri builds against, plus CMake and Clang for BoringSSL:
 
 ```bash
 # Debian, Ubuntu
 sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev \
-  libssl-dev libayatana-appindicator3-dev librsvg2-dev
+  libssl-dev libayatana-appindicator3-dev librsvg2-dev cmake clang libclang-dev
 # Arch Linux
 sudo pacman -S --needed webkit2gtk-4.1 base-devel curl wget file openssl \
-  appmenu-gtk-module libappindicator-gtk3 librsvg xdotool
+  appmenu-gtk-module libappindicator-gtk3 librsvg xdotool cmake clang
 # Fedora
 sudo dnf install webkit2gtk4.1-devel openssl-devel curl wget file \
-  libappindicator-gtk3-devel librsvg2-devel libxdo-devel
+  libappindicator-gtk3-devel librsvg2-devel libxdo-devel cmake clang-devel
 sudo dnf group install "c-development"
 ```
 
-These are the lists from [Tauri's prerequisites](https://v2.tauri.app/start/prerequisites/).
+These are the lists from [Tauri's prerequisites](https://v2.tauri.app/start/prerequisites/),
+plus CMake and Clang: wreq, the HTTP client that gets past Cloudflare on unrealengine.com,
+compiles BoringSSL.
 
 Then:
 

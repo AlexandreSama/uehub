@@ -142,22 +142,24 @@ peux le partager sans risque.
 ## Compiler uehub
 
 Il te faut [Rust](https://rustup.rs) 1.90 ou plus récent, [Node.js](https://nodejs.org)
-22, et les bibliothèques dont Tauri a besoin :
+22, les bibliothèques dont Tauri a besoin, et CMake et Clang pour BoringSSL :
 
 ```bash
 # Debian, Ubuntu
 sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev \
-  libssl-dev libayatana-appindicator3-dev librsvg2-dev
+  libssl-dev libayatana-appindicator3-dev librsvg2-dev cmake clang libclang-dev
 # Arch Linux
 sudo pacman -S --needed webkit2gtk-4.1 base-devel curl wget file openssl \
-  appmenu-gtk-module libappindicator-gtk3 librsvg xdotool
+  appmenu-gtk-module libappindicator-gtk3 librsvg xdotool cmake clang
 # Fedora
 sudo dnf install webkit2gtk4.1-devel openssl-devel curl wget file \
-  libappindicator-gtk3-devel librsvg2-devel libxdo-devel
+  libappindicator-gtk3-devel librsvg2-devel libxdo-devel cmake clang-devel
 sudo dnf group install "c-development"
 ```
 
-Ce sont les listes des [prérequis de Tauri](https://v2.tauri.app/fr/start/prerequisites/).
+Ce sont les listes des [prérequis de Tauri](https://v2.tauri.app/fr/start/prerequisites/),
+plus CMake et Clang : wreq, le client HTTP qui passe Cloudflare sur unrealengine.com,
+compile BoringSSL.
 Ensuite :
 
 ```bash

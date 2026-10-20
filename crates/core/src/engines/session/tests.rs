@@ -9,6 +9,8 @@ struct Fake {
     silent_works: bool,
     /// La page Linux contient des zips
     page_has_zips: bool,
+    /// Cloudflare sert sa page de vérification à la place de unrealengine.com
+    cloudflare: bool,
 }
 
 /// Un faux epicgames.com + unrealengine.com, qui répond comme les vrais le 18 octobre 2026.
@@ -19,6 +21,11 @@ async fn fake_epic(fake: Fake) -> String {
 
 fn answer(request: &Request, base: &str, fake: Fake) -> Reply {
     let auth = request.has_cookie("EPIC_AUTH_b8e6");
+    if fake.cloudflare && request.path == "/id/api/set-sid" {
+        return Reply::new("403 Forbidden")
+            .header("cf-mitigated", "challenge")
+            .body("<html><title>Just a moment...</title></html>");
+    }
     match (request.method.as_str(), request.path.as_str()) {
         ("GET", "/id/api/reputation") => Reply::new("404 Not Found")
             .header("Set-Cookie", "XSRF-TOKEN=xsrfSECRET; Path=/id"),
@@ -103,6 +110,7 @@ fn sites(base: &str) -> Sites {
 const WORKS: Fake = Fake {
     silent_works: true,
     page_has_zips: true,
+    cloudflare: false,
 };
 
 #[tokio::test]
@@ -227,4 +235,22 @@ async fn the_engine_list_has_no_addresses() {
         .await
         .unwrap();
     assert!(session.read_engine_list().await.is_err());
+}
+
+#[tokio::test]
+async fn cloudflare_is_named_instead_of_epic() {
+    let blocked = Fake {
+        cloudflare: true,
+        ..WORKS
+    };
+    let base = fake_epic(blocked).await;
+    let err = UnrealSession::open(sites(&base), "CODESECRET")
+        .await
+        .err()
+        .unwrap()
+        .to_string();
+    assert!(
+        err.starts_with("Opening the unrealengine.com session: Cloudflare blocked the request"),
+        "{err}"
+    );
 }

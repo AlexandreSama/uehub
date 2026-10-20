@@ -7,13 +7,20 @@
 //! 4. unrealengine.com reçoit ce SID (set-sid) ;
 //! 5. unrealengine.com demande une « connexion silencieuse » : on suit l'adresse qu'il
 //!    indique, et il pose son propre cookie de session.
+//!
+//! Depuis le 20 octobre 2026, Cloudflare bloque unrealengine.com pour tout client qui n'a
+//! pas l'empreinte TLS et HTTP/2 d'un navigateur, quel que soit son User-Agent. D'où wreq
+//! plutôt que reqwest : il se présente comme Firefox.
 
 use std::sync::Arc;
 
-use reqwest::cookie::{CookieStore, Jar};
-use reqwest::header::{ACCEPT, HeaderMap, HeaderValue, USER_AGENT};
-use reqwest::{Response, Url};
+use reqwest::Url;
 use serde_json::Value;
+use wreq::Response;
+use wreq::cookie::Jar;
+use wreq::header::ACCEPT;
+use wreq::redirect::Policy;
+use wreq_util::Emulation;
 
 use super::{EngineDownload, EngineList, ListedEngine, page};
 use crate::{CoreError, EpicClient, Result, t};
@@ -38,7 +45,7 @@ impl Sites {
 
 /// Une session ouverte sur unrealengine.com.
 pub struct UnrealSession {
-    http: reqwest::Client,
+    http: wreq::Client,
     sites: Sites,
 }
 
@@ -71,9 +78,12 @@ impl UnrealSession {
 
     pub(crate) async fn open(sites: Sites, code: &str) -> Result<Self> {
         let jar = Arc::new(Jar::default());
-        let http = reqwest::Client::builder()
-            .default_headers(launcher_headers())
+        let http = wreq::Client::builder()
+            .emulation(Emulation::Firefox151)
             .cookie_provider(jar.clone())
+            // wreq ne suit aucune redirection par défaut ; la connexion silencieuse en a
+            // besoin. 10, comme reqwest.
+            .redirect(Policy::limited(10))
             .connect_timeout(crate::CONNECT_TIMEOUT)
             .read_timeout(crate::READ_TIMEOUT)
             .build()?;
@@ -83,7 +93,11 @@ impl UnrealSession {
         http.get(format!("{}/id/api/reputation", sites.epic))
             .send()
             .await?;
-        let xsrf = cookie_value(&jar, &parse(&exchange)?, "XSRF-TOKEN")
+        // Le cookie que le client renverrait à cette adresse (`get` exige le chemin exact).
+        let xsrf = jar
+            .matches(exchange.as_str())
+            .find(|cookie| cookie.name() == "XSRF-TOKEN")
+            .map(|cookie| cookie.value().to_string())
             .ok_or_else(|| step(t!("errors.no_xsrf")))?;
 
         // 2. Connexion sur epicgames.com avec le code d'échange.
@@ -126,7 +140,12 @@ impl UnrealSession {
             let url = parse(&format!("{}/", session.sites.unreal))?
                 .join(silent)
                 .map_err(|e| step(t!("errors.bad_silent_url", detail = e)))?;
-            let response = session.http.get(url).header(ACCEPT, HTML).send().await?;
+            let response = session
+                .http
+                .get(url.as_str())
+                .header(ACCEPT, HTML)
+                .send()
+                .await?;
             ensure_ok(response, t!("steps.silent_login")).await?;
             if !logged_in(&session.cosmos_auth().await?) {
                 return Err(step(t!("errors.session_not_recognized")));
@@ -205,18 +224,6 @@ impl UnrealSession {
     }
 }
 
-/// Les en-têtes du launcher Epic, comme egs-api : Epic les accepte aussi sur ses sites web.
-fn launcher_headers() -> HeaderMap {
-    let mut headers = HeaderMap::new();
-    headers.insert(
-        USER_AGENT,
-        HeaderValue::from_static(
-            "UELauncher/17.0.1-37584233+++Portal+Release-Live Windows/10.0.19043.1.0.64bit",
-        ),
-    );
-    headers
-}
-
 /// Le site a-t-il reconnu le compte ?
 fn logged_in(auth: &Value) -> bool {
     auth.pointer("/account/isLoggedIn").and_then(Value::as_bool) == Some(true)
@@ -237,6 +244,11 @@ async fn ensure_ok(response: Response, step: String) -> Result<Response> {
     if response.status().is_success() {
         return Ok(response);
     }
+    // Ce n'est pas Epic qui refuse, c'est Cloudflare qui veut un navigateur : le dire,
+    // sinon on cherche le problème du côté du compte.
+    if blocked_by_cloudflare(&response) {
+        return Err(CoreError::Api(t!("errors.cloudflare", step = step)));
+    }
     let status = response.status();
     let body = response.text().await.unwrap_or_default();
     Err(CoreError::Epic {
@@ -246,16 +258,12 @@ async fn ensure_ok(response: Response, step: String) -> Result<Response> {
     })
 }
 
-/// La valeur d'un cookie que le client renverrait à cette adresse.
-fn cookie_value(jar: &Jar, url: &Url, name: &str) -> Option<String> {
-    let header = jar.cookies(url)?;
-    header
-        .to_str()
-        .ok()?
-        .split(';')
-        .filter_map(|pair| pair.trim().split_once('='))
-        .find(|(key, _)| *key == name)
-        .map(|(_, value)| value.to_string())
+/// Cloudflare marque ainsi la page de vérification qu'il sert à la place du site.
+fn blocked_by_cloudflare(response: &Response) -> bool {
+    response
+        .headers()
+        .get("cf-mitigated")
+        .is_some_and(|value| value == "challenge")
 }
 
 #[cfg(test)]

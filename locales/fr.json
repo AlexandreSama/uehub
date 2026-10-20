@@ -29,6 +29,7 @@
     "not_logged_in": "Pas de session valide : connecte-toi d'abord.",
     "epic_status": "{step} : Epic a répondu {status}.",
     "epic": "{step} : Epic a renvoyé une erreur.",
+    "cloudflare": "{step} : Cloudflare bloque la requête et demande une vérification de navigateur. Réessaie plus tard, ou mets uehub à jour.",
     "no_data_dir": "Impossible de trouver ton dossier personnel.",
     "hash_mismatch": "Fichier abîmé pendant le téléchargement (SHA-1 différent) : {file}. Réessaie : il sera téléchargé à nouveau.",
     "conflict": {

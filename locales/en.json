@@ -29,6 +29,7 @@
     "not_logged_in": "No valid session: sign in first.",
     "epic_status": "{step}: Epic answered {status}.",
     "epic": "{step}: Epic returned an error.",
+    "cloudflare": "{step}: Cloudflare blocked the request and wants a browser check. Try again later, or update uehub.",
     "no_data_dir": "Can't find your home folder.",
     "hash_mismatch": "File damaged during the download (SHA-1 mismatch): {file}. Try again: it will be downloaded anew.",
     "conflict": {
