@@ -91,9 +91,10 @@ one whose signature doesn't match.
 ## Command line
 
 uehub also has a command-line tool, `uehub`, built from `crates/cli`. It shares the
-desktop app's session, recent projects and engines. It isn't in the packages yet:
-install it with `cargo install` (see [Build from source](#build-from-source)). The
-desktop app's own command is `uehub-desktop`, so the two don't clash.
+desktop app's session, recent projects and engines. The AUR package installs it; with
+the `.deb`, `.rpm` or AppImage, install it with `cargo install` (see
+[Build from source](#build-from-source)). The desktop app's own command is
+`uehub-desktop`, so the two don't clash.
 
 ```bash
 uehub auth-url                                  # the Epic sign-in address

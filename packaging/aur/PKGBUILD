@@ -1,0 +1,76 @@
+# Maintainer: DjinnSama
+
+pkgname=uehub
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Fab library and Unreal Engine manager for Linux'
+arch=('x86_64')
+url='https://github.com/AlexandreSama/uehub'
+license=('LicenseRef-uehub')
+depends=(
+  'cairo'
+  'dbus'
+  'gcc-libs'
+  'gdk-pixbuf2'
+  'glib2'
+  'glibc'
+  'gtk3'
+  'hicolor-icon-theme'
+  'libsoup3'
+  'webkit2gtk-4.1'
+  'xdg-utils'
+)
+makedepends=('cargo' 'nodejs' 'npm')
+optdepends=('org.freedesktop.secrets: keep your Epic Games session in the system keyring')
+# aws-lc-sys compile du C. La LTO de makepkg en ferait des objets que l'édition de liens
+# de Rust peut ne pas savoir lier : un souci connu des paquets Rust, autant l'éviter.
+options=('!lto')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('b68e599856ed427b418868fe1152988ab41568ed78f1f0c0ca66454757637711')
+
+prepare() {
+  cd "$pkgname-$pkgver"
+  export RUSTUP_TOOLCHAIN=stable
+  cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+  cd desktop
+  npm ci
+}
+
+build() {
+  cd "$pkgname-$pkgver"
+  export RUSTUP_TOOLCHAIN=stable
+  export CARGO_TARGET_DIR="$srcdir/$pkgname-$pkgver/target"
+  # L'app, sans paquet : sans type de paquet dans le binaire, uehub coupe sa mise à jour
+  # intégrée et laisse pacman s'en charger.
+  cd desktop
+  npx --no tauri build --no-bundle -- --frozen
+  cd ..
+  # L'outil en ligne de commande
+  cargo build --frozen --release -p uehub-cli
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  install -Dm755 target/release/uehub-desktop "$pkgdir/usr/bin/uehub-desktop"
+  install -Dm755 target/release/uehub "$pkgdir/usr/bin/uehub"
+
+  # L'entrée du menu, à partir du modèle des autres paquets
+  local comment
+  comment=$(node -p 'require("./desktop/src-tauri/tauri.conf.json").bundle.shortDescription')
+  sed -e 's/{{name}}/uehub/' \
+    -e "s/{{comment}}/$comment/" \
+    -e 's/{{exec}}/uehub-desktop/g' \
+    -e 's/{{icon}}/uehub-desktop/' \
+    -e 's/{{categories}}/Development;/' \
+    desktop/src-tauri/uehub.desktop > uehub.desktop
+  install -Dm644 uehub.desktop "$pkgdir/usr/share/applications/uehub.desktop"
+
+  local icons=desktop/src-tauri/icons hicolor="$pkgdir/usr/share/icons/hicolor"
+  install -Dm644 "$icons/32x32.png" "$hicolor/32x32/apps/uehub-desktop.png"
+  install -Dm644 "$icons/128x128.png" "$hicolor/128x128/apps/uehub-desktop.png"
+  install -Dm644 "$icons/128x128@2x.png" "$hicolor/256x256/apps/uehub-desktop.png"
+  install -Dm644 "$icons/icon.png" "$hicolor/512x512/apps/uehub-desktop.png"
+
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 THIRD-PARTY-NOTICES.md "$pkgdir/usr/share/licenses/$pkgname/THIRD-PARTY-NOTICES.md"
+}

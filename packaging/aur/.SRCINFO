@@ -1,0 +1,27 @@
+pkgbase = uehub
+	pkgdesc = Fab library and Unreal Engine manager for Linux
+	pkgver = 0.1.0
+	pkgrel = 1
+	url = https://github.com/AlexandreSama/uehub
+	arch = x86_64
+	license = LicenseRef-uehub
+	makedepends = cargo
+	makedepends = nodejs
+	makedepends = npm
+	depends = cairo
+	depends = dbus
+	depends = gcc-libs
+	depends = gdk-pixbuf2
+	depends = glib2
+	depends = glibc
+	depends = gtk3
+	depends = hicolor-icon-theme
+	depends = libsoup3
+	depends = webkit2gtk-4.1
+	depends = xdg-utils
+	optdepends = org.freedesktop.secrets: keep your Epic Games session in the system keyring
+	options = !lto
+	source = uehub-0.1.0.tar.gz::https://github.com/AlexandreSama/uehub/archive/refs/tags/v0.1.0.tar.gz
+	sha256sums = b68e599856ed427b418868fe1152988ab41568ed78f1f0c0ca66454757637711
+
+pkgname = uehub

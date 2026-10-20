@@ -96,10 +96,10 @@ signée, et uehub refuse celle dont la signature ne correspond pas.
 ## En ligne de commande
 
 uehub a aussi un outil en ligne de commande, `uehub`, construit à partir de
-`crates/cli`. Il partage la session, les projets récents et les moteurs de l'app. Il
-n'est pas encore dans les paquets : installe-le avec `cargo install` (voir
-[Compiler uehub](#compiler-uehub)). L'app, elle, se lance avec `uehub-desktop` : les deux
-ne se marchent pas dessus.
+`crates/cli`. Il partage la session, les projets récents et les moteurs de l'app. Le
+paquet AUR l'installe ; avec le `.deb`, le `.rpm` ou l'AppImage, installe-le avec
+`cargo install` (voir [Compiler uehub](#compiler-uehub)). L'app, elle, se lance avec
+`uehub-desktop` : les deux ne se marchent pas dessus.
 
 ```bash
 uehub auth-url                                  # l'adresse de connexion Epic
