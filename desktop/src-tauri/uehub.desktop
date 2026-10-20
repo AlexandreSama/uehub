@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name={{name}}
+GenericName=Fab and Unreal Engine manager
+GenericName[fr]=Gestionnaire Fab et Unreal Engine
+Comment={{comment}}
+Comment[fr]=Ta bibliothèque Fab et tes moteurs Unreal Engine, sous Linux
+Keywords=Unreal;Unreal Engine;Fab;Epic Games;assets;game;
+Keywords[fr]=Unreal;Unreal Engine;Fab;Epic Games;assets;jeu;
+Exec={{exec}}
+StartupWMClass={{exec}}
+Icon={{icon}}
+Terminal=false
+Categories={{categories}}

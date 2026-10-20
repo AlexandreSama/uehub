@@ -3,7 +3,12 @@ name = "uehub-desktop"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license.workspace = true
+description = "uehub, a Fab library and Unreal Engine manager for Linux"
+authors.workspace = true
+license-file.workspace = true
+homepage.workspace = true
+repository.workspace = true
+publish.workspace = true
 
 [lib]
 # Le suffixe `_lib` évite un conflit de nom entre la bibliothèque et le binaire.

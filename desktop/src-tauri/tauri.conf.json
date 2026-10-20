@@ -31,6 +31,13 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "category": "DeveloperTool",
+    "shortDescription": "Fab library and Unreal Engine manager for Linux",
+    "longDescription": "uehub brings the parts of the Epic Games Launcher that Unreal Engine developers need to Linux.\n\nSign in with your Epic Games account, browse your Fab library, and add an asset to an Unreal project in one click: uehub picks the version that matches the project's engine and puts plugins where they belong. Downloads go through a queue that survives pauses, lost connections and restarts, and uehub tells you when an asset you added has an update.\n\nuehub also installs the prebuilt Unreal Engine releases that Epic publishes for Linux, registers them for your projects, and tells you when a new patch is out. It speaks English and French.\n\nuehub is not affiliated with Epic Games.",
+    "publisher": "DjinnSama",
+    "copyright": "Copyright © 2026 DjinnSama",
+    "license": "LicenseRef-uehub",
+    "licenseFile": "../../LICENSE",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -38,7 +45,30 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": true,
+    "linux": {
+      "deb": {
+        "section": "devel",
+        "desktopTemplate": "uehub.desktop",
+        "files": {
+          "/usr/share/doc/uehub/copyright": "../../LICENSE",
+          "/usr/share/doc/uehub/THIRD-PARTY-NOTICES.md": "../../THIRD-PARTY-NOTICES.md"
+        }
+      },
+      "rpm": {
+        "desktopTemplate": "uehub.desktop",
+        "files": {
+          "/usr/share/licenses/uehub/LICENSE": "../../LICENSE",
+          "/usr/share/licenses/uehub/THIRD-PARTY-NOTICES.md": "../../THIRD-PARTY-NOTICES.md"
+        }
+      },
+      "appimage": {
+        "files": {
+          "/usr/share/licenses/uehub/LICENSE": "../../LICENSE",
+          "/usr/share/licenses/uehub/THIRD-PARTY-NOTICES.md": "../../THIRD-PARTY-NOTICES.md"
+        }
+      }
+    }
   },
   "plugins": {
     "updater": {

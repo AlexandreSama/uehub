@@ -272,6 +272,10 @@ input::placeholder {
 }
 
 .wordmark {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
   font-weight: 700;
   font-stretch: 70%;
   font-size: 19px;
@@ -1465,7 +1469,9 @@ table {
 .login {
   min-height: 100vh;
   display: grid;
-  place-items: center;
+  place-content: center;
+  justify-items: center;
+  gap: 24px;
   padding: 24px;
   background-color: var(--ground);
   background-image:
@@ -1478,6 +1484,18 @@ table {
     128px 128px,
     16px 16px,
     16px 16px;
+}
+
+/* Le logo et le nom au-dessus du nœud de connexion. */
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.login-brand .wordmark {
+  margin: 0;
+  font-size: 40px;
 }
 
 .node {

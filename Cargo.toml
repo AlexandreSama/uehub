@@ -7,7 +7,13 @@ members = ["crates/*", "desktop/src-tauri"]
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.90"
-license = "MIT"
+authors = ["DjinnSama"]
+# Une licence à soi, sans identifiant SPDX : Cargo la désigne par son fichier.
+license-file = "LICENSE"
+homepage = "https://github.com/TON_COMPTE/uehub"
+repository = "https://github.com/TON_COMPTE/uehub"
+# uehub ne se publie pas sur crates.io : cargo publish refusera.
+publish = false
 
 # Versions centralisées : chaque crate écrit juste `tokio.workspace = true`
 [workspace.dependencies]

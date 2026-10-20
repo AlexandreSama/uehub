@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { api, formatDay, tilde, type Account } from "../api";
 import { t } from "../i18n";
 import { progressLabel, type AppUpdate } from "../update";
+// Le logo de uehub, le même que l'icône de l'app
+import logo from "../../src-tauri/icons/128x128.png";
 import { EngineIcon, LibraryIcon, UpdateIcon } from "./Common";
 import LogButton from "./LogButton";
 
@@ -26,7 +28,10 @@ export default function Rail(props: Props) {
     props;
   return (
     <nav className="rail" aria-label={t("rail.screens")}>
-      <span className="wordmark">uehub</span>
+      <span className="wordmark">
+        <img src={logo} alt="" width={40} height={40} />
+        uehub
+      </span>
       <button
         className="rail-button"
         aria-current={view === "library" ? "page" : undefined}

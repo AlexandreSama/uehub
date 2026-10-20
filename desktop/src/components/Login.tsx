@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import logo from "../../src-tauri/icons/128x128@2x.png";
 import { t, tx } from "../i18n";
 
 interface Props {
@@ -35,6 +36,10 @@ export default function Login({ onOpenPage, onSubmit }: Props) {
 
   return (
     <main className="login">
+      <div className="login-brand">
+        <img src={logo} alt="" width={96} height={96} />
+        <span className="wordmark">uehub</span>
+      </div>
       <form className="node" onSubmit={submit}>
         <header className="node-head">
           <span className="exec" aria-hidden="true" />

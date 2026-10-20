@@ -1,0 +1,108 @@
+uehub License
+
+Copyright (c) 2026 DjinnSama. All rights reserved.
+
+uehub is free to use, and its source code is public so that anyone can read it and
+help improve it. It is not open source: it may not be redistributed, sold, or presented
+as someone else's work. This license explains what you may and may not do with it.
+
+"The Software" means uehub: the source code in this repository, everything built or
+packaged from it, its name and its logo. "The Author" means DjinnSama.
+
+Anything this license does not allow is reserved to the Author.
+
+
+1. What you may do
+
+  a. Use it. You may get the Software from its official sources (section 3), build
+     it, install it and use it on as many computers as you like, for any purpose. This
+     includes your own commercial work: you may use uehub to manage the assets and
+     engines of a game or project that you sell.
+
+  b. Read and study it. You may read the source code and learn from it.
+
+  c. Change it to contribute. You may fork the official repository on GitHub and
+     change your fork in order to propose those changes to the Author, through pull
+     requests, issues or patches. You may build and run your changed version on your
+     own computers to develop and test it.
+
+
+2. What you may not do
+
+  a. Redistribute it. You may not give, publish or share copies of the Software or of
+     a changed version, as source code or as builds: no mirrors, downloads, packages
+     (in the AUR, Flathub, Snap, a distribution's repositories or anywhere else),
+     installers, or bundles with other software. People get uehub from its official
+     sources. A fork on GitHub made as allowed in 1.c is not redistribution, as long
+     as it keeps this license and you do not publish builds or packages made from it.
+
+  b. Make money from it. You may not sell the Software or a changed version, charge
+     for access to it, for downloading it, for installing it or for any of its
+     features, show ads in it, include it in a paid product or service, or earn money
+     from the Software itself in any other way. uehub is free and stays free. This
+     does not limit what you make with it (see 1.a).
+
+  c. Pass it off as yours. You may not remove or change the copyright notices, this
+     license or the credits to the Author; present the Software, a changed version or
+     its code as your own work; or use the name "uehub" or its logo for anything other
+     than the Software itself.
+
+  d. Take its code elsewhere. You may not copy the Software's code, in whole or in
+     substantial part, into another project.
+
+
+3. Official sources
+
+The official sources of the Software are its GitHub repository, the releases published
+there, and the packages the Author publishes, such as the uehub package in the AUR
+maintained by the Author.
+
+
+4. Contributions
+
+When you send a contribution (a pull request, a patch, or code in an issue), you
+confirm that you wrote it or have the right to send it, and you give the Author a
+permanent, worldwide, free, non-exclusive and irrevocable license to use, change,
+distribute and sublicense it as part of the Software, under this license or under any
+other license the Author chooses later. You keep the copyright on your contribution,
+and it stays credited to you in the repository's history.
+
+
+5. Other software inside uehub
+
+uehub uses open-source libraries and a font, each under its own license. They are
+listed, with their licenses, in THIRD-PARTY-NOTICES.md. This license does not change
+their terms, and nothing in it limits what their own licenses allow you to do with
+them.
+
+
+6. GitHub
+
+Nothing in this license limits the rights that GitHub's Terms of Service give to
+GitHub users, such as viewing and forking public repositories on GitHub.
+
+
+7. Epic Games
+
+uehub is not affiliated with, endorsed by or sponsored by Epic Games. Epic Games,
+Unreal Engine and Fab are trademarks of Epic Games, Inc. You use uehub with your own
+Epic Games account, and you remain bound by the terms Epic Games sets for its services
+and for the content you download.
+
+
+8. If you break these terms
+
+If you do something this license does not allow, the permissions it gives you end.
+If you stop within 30 days of being told by the Author, they are given back to you,
+once. For anything this license does not cover, such as packaging uehub for a
+distribution, ask the Author by opening an issue on the GitHub repository.
+
+
+9. No warranty
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.

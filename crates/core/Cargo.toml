@@ -3,7 +3,12 @@ name = "uehub-core"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license.workspace = true
+description = "The core of uehub: Epic Games sign-in, Fab downloads and Unreal Engine installs"
+authors.workspace = true
+license-file.workspace = true
+homepage.workspace = true
+repository.workspace = true
+publish.workspace = true
 
 [dependencies]
 egs-api.workspace = true
