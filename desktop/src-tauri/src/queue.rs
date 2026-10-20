@@ -1,9 +1,6 @@
 //! La file d'attente des téléchargements : un seul à la fois, dans l'ordre d'arrivée.
 //! Elle est enregistrée sur le disque ; au lancement, ce qui n'était pas fini revient en pause.
 
-#[cfg(test)]
-mod tests;
-
 use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -12,7 +9,7 @@ use futures::future::{AbortHandle, Abortable};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::Notify;
-use uehub_core::EngineInstall;
+use uehub_core::{EngineInstall, t};
 
 use crate::commands::{AppState, ProgressEvent, Summary, run_job};
 use crate::notify;
@@ -131,7 +128,7 @@ impl Jobs {
             .iter()
             .any(|j| j.request == job.request && !j.is_done())
         {
-            return Err(format!("« {} » est déjà dans la file", job.title));
+            return Err(t!("errors.already_queued", title = job.title));
         }
         job.id = self.next_id;
         job.status = Status::Waiting;
@@ -268,7 +265,7 @@ impl Queue {
         let mut jobs = self.jobs.lock().unwrap();
         let result = change(&mut jobs);
         if let Err(e) = self.save(&jobs.list) {
-            eprintln!("file d'attente non enregistrée : {e}");
+            log::warn!("queue not saved: {e}");
         }
         let _ = self.app.emit("queue", &jobs.list);
         result
@@ -375,7 +372,7 @@ impl Queue {
                 Leftover::Engine { version, dir } => EngineInstall::discard(version, dir).await,
             };
             if let Err(e) = result {
-                eprintln!("fichiers d'un job retiré non supprimés : {e}");
+                log::warn!("files of a removed job not deleted: {}", e.detail());
             }
         }
     }
@@ -399,19 +396,42 @@ pub async fn worker(app: AppHandle) {
             continue;
         };
 
+        log::info!("job {} started: {}", job.id, describe(&job));
         let result = Abortable::new(run_job(&state, &queue, &job), registration).await;
         *queue.current.lock().unwrap() = None;
 
         // Interrompu (pause ou retrait) : la file est déjà à jour, et pas de notification.
-        if let Ok(result) = result {
-            let status = match result {
-                Ok(summary) => Status::Done { summary },
-                Err(e) => Status::Failed {
+        let Ok(result) = result else {
+            log::info!("job {} stopped (pause or removal)", job.id);
+            continue;
+        };
+        let status = match result {
+            Ok(summary) => {
+                log::info!("job {} done: {}", job.id, summary.text());
+                Status::Done { summary }
+            }
+            // L'interface montre la phrase ; le journal garde aussi la cause.
+            Err(e) => {
+                log::warn!("job {} failed: {}", job.id, e.detail());
+                Status::Failed {
                     error: e.to_string(),
-                },
-            };
-            queue.update(|jobs| jobs.finish(job.id, status.clone()));
-            notify::job_finished(&app, &Job { status, ..job });
-        }
+                }
+            }
+        };
+        queue.update(|jobs| jobs.finish(job.id, status.clone()));
+        notify::job_finished(&app, &Job { status, ..job });
     }
 }
+
+/// Ce que fait un job, pour le journal : "download \"Megascans: Grass\" into ~/Assets".
+fn describe(job: &Job) -> String {
+    let what = match &job.request {
+        Request::Download { .. } => "download",
+        Request::AddToProject { .. } => "add",
+        Request::InstallEngine { .. } => "install",
+    };
+    format!("{what} \"{}\" into {}", job.title, job.target)
+}
+
+#[cfg(test)]
+mod tests;

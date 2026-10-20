@@ -5,9 +5,6 @@
 //! paquet, vérifie sa signature et l'installe. Construit autrement (le paquet AUR,
 //! `cargo build`, `tauri dev`), il laisse faire le gestionnaire de paquets.
 
-#[cfg(test)]
-mod tests;
-
 use std::sync::Mutex;
 
 use serde::Serialize;
@@ -15,7 +12,8 @@ use tauri::ipc::Channel;
 use tauri::utils::config::BundleType;
 use tauri::utils::platform::bundle_type;
 use tauri::{AppHandle, State};
-use tauri_plugin_updater::{Update, UpdaterExt};
+use tauri_plugin_updater::{Update, Updater, UpdaterExt};
+use uehub_core::{CONNECT_TIMEOUT, READ_TIMEOUT, t};
 
 use crate::commands::{Error, Result};
 
@@ -56,7 +54,7 @@ pub struct PendingUpdate(Mutex<Option<Update>>);
 
 /// Le paquet d'où vient ce binaire. Le bundler de Tauri l'inscrit dans le binaire
 /// en fabriquant le .deb, le .rpm ou l'AppImage ; un binaire sans paquet n'a rien.
-fn package() -> Option<&'static str> {
+pub fn package() -> Option<&'static str> {
     match bundle_type()? {
         BundleType::Deb => Some("deb"),
         BundleType::Rpm => Some("rpm"),
@@ -81,11 +79,13 @@ pub async fn check_update(
     pending: State<'_, PendingUpdate>,
 ) -> Result<Option<UpdateInfo>> {
     if package().is_none() {
-        return Err(Error::Msg(
-            "cette copie de uehub se met à jour par ton gestionnaire de paquets".into(),
-        ));
+        return Err(Error::Msg(t!("errors.package_manager")));
     }
-    let update = app.updater()?.check().await?;
+    let update = updater(&app)?.check().await?;
+    match &update {
+        Some(update) => log::info!("update available: {}", update.version),
+        None => log::info!("no update: uehub is up to date"),
+    }
     let info = update.as_ref().map(|u| UpdateInfo {
         version: u.version.clone(),
         date: u.date.map(|d| d.date().to_string()),
@@ -108,7 +108,8 @@ pub async fn install_update(
         .lock()
         .unwrap()
         .clone()
-        .ok_or_else(|| Error::Msg("aucune mise à jour à installer".into()))?;
+        .ok_or_else(|| Error::Msg(t!("errors.no_update")))?;
+    log::info!("installing uehub {}", update.version);
     let mut done = 0;
     update
         .download_and_install(
@@ -122,5 +123,42 @@ pub async fn install_update(
         )
         .await?;
     // La file est enregistrée : ce qui tournait revient en pause au redémarrage.
+    log::info!("update installed, restarting");
     app.restart()
 }
+
+/// Le plugin, avec les mêmes délais que les clients du core : sans réponse, la
+/// recherche finit par « délai dépassé » au lieu d'attendre indéfiniment.
+fn updater(app: &AppHandle) -> tauri_plugin_updater::Result<Updater> {
+    app.updater_builder()
+        .configure_client(|client| {
+            client
+                .connect_timeout(CONNECT_TIMEOUT)
+                .read_timeout(READ_TIMEOUT)
+        })
+        .build()
+}
+
+/// Une phrase par erreur du plugin. Le réseau est déjà parti vers le core (voir
+/// `From<tauri_plugin_updater::Error>`) : il reste la signature, l'installation du paquet
+/// et ce que le serveur a renvoyé.
+pub fn sentence(e: &tauri_plugin_updater::Error) -> String {
+    use tauri_plugin_updater::Error as E;
+    match e {
+        E::Minisign(_)
+        | E::Base64(_)
+        | E::SignatureUtf8(_)
+        | E::SignedVersionMismatch { .. }
+        | E::MissingSignedVersion => t!("errors.update_signature"),
+        E::AuthenticationFailed => t!("errors.update_cancelled"),
+        E::DebInstallFailed | E::PackageInstallFailed => t!("errors.update_install"),
+        E::ReleaseNotFound | E::TargetNotFound(_) | E::TargetsNotFound(_) | E::Serialization(_) => {
+            t!("errors.update_no_release")
+        }
+        E::Network(_) => t!("errors.update_download"),
+        _ => t!("errors.update_failed"),
+    }
+}
+
+#[cfg(test)]
+mod tests;

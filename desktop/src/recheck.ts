@@ -12,19 +12,19 @@ export const RECHECK_MS = 4 * 60 * 60 * 1000;
 const TICK_MS = 10 * 60 * 1000;
 
 export function useTick(onTick: () => void) {
-    // La dernière version de la fonction, avec l'état du moment
-    const latest = useRef(onTick);
-    useEffect(() => {
-        latest.current = onTick;
-    });
+  // La dernière version de la fonction, avec l'état du moment
+  const latest = useRef(onTick);
+  useEffect(() => {
+    latest.current = onTick;
+  });
 
-    useEffect(() => {
-        const tick = () => latest.current();
-        const timer = setInterval(tick, TICK_MS);
-        window.addEventListener("focus", tick);
-        return () => {
-            clearInterval(timer);
-            window.removeEventListener("focus", tick);
-        };
-    }, []);
+  useEffect(() => {
+    const tick = () => latest.current();
+    const timer = setInterval(tick, TICK_MS);
+    window.addEventListener("focus", tick);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", tick);
+    };
+  }, []);
 }

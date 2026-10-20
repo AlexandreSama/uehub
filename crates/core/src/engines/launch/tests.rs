@@ -82,5 +82,5 @@ fn launches_the_editor_with_the_project() {
         ..e
     };
     let err = launch_editor(&missing, None).unwrap_err().to_string();
-    assert!(err.contains("introuvable"), "{err}");
+    assert!(err.ends_with("not found: is the engine complete?"), "{err}");
 }

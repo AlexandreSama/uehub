@@ -321,7 +321,7 @@ async fn missing_chunk_fails_after_retries() {
         .download_chunks(&http(), &root.join("cache"), 2, &noop)
         .await
         .unwrap_err();
-    assert!(matches!(err, CoreError::Http(_)), "{err}");
+    assert!(matches!(err, CoreError::Net(_)), "{err}");
     assert!(
         t.elapsed().as_secs() >= 6,
         "trois essais, après 1, 2 puis 3 secondes"

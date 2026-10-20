@@ -1,6 +1,4 @@
 //! Lecture d'un projet Unreal (.uproject) et de la version du moteur associé.
-#[cfg(test)]
-mod tests;
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -9,7 +7,7 @@ use directories::BaseDirs;
 use egs_api::api::types::fab_library::FabAsset;
 
 use crate::download::DownloadPlan;
-use crate::{CoreError, Result};
+use crate::{CoreError, Result, t};
 
 /// Un projet Unreal ouvert depuis son .uproject.
 #[derive(Debug, Clone)]
@@ -39,7 +37,7 @@ impl UnrealProject {
         let association = json["EngineAssociation"].as_str().unwrap_or("").trim();
         let dir = path
             .parent()
-            .ok_or_else(|| CoreError::Project("chemin de projet invalide".into()))?
+            .ok_or_else(|| CoreError::Project(t!("errors.bad_project_path")))?
             .to_path_buf();
         let name = path
             .file_stem()
@@ -148,7 +146,7 @@ pub(crate) fn plugin_target(project_dir: &Path, plan: &DownloadPlan) -> Result<P
     let uplugin = plan
         .file_names()
         .find(|f| f.ends_with(".uplugin"))
-        .ok_or_else(|| CoreError::Project("aucun fichier .uplugin dans ce plugin".into()))?;
+        .ok_or_else(|| CoreError::Project(t!("errors.no_uplugin")))?;
     let uplugin = Path::new(uplugin);
     let plugins = project_dir.join("Plugins");
 
@@ -164,3 +162,6 @@ pub(crate) fn plugin_target(project_dir: &Path, plan: &DownloadPlan) -> Result<P
         plugins.join(stem)
     })
 }
+
+#[cfg(test)]
+mod tests;

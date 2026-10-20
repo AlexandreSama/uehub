@@ -1,0 +1,449 @@
+{
+  "units": {
+    "kb": "{value} Ko",
+    "mb": "{value} Mo",
+    "gb": "{value} Go"
+  },
+  "storage": {
+    "keyring": "trousseau système",
+    "file": "fichier (aucun trousseau disponible)"
+  },
+  "steps": {
+    "fab_library": "Lecture de ta bibliothèque Fab",
+    "asset_manifest": "Lecture du manifest de l'asset",
+    "exchange_code": "Demande d'un code d'échange",
+    "epic_sign_in": "Connexion sur epicgames.com",
+    "unreal_session": "Ouverture de la session unrealengine.com",
+    "silent_login": "Connexion silencieuse sur unrealengine.com",
+    "eula_check": "Vérification du CLUF",
+    "linux_page": "Lecture de la page Linux"
+  },
+  "errors": {
+    "offline": "Pas de connexion : impossible de joindre {host}. Vérifie ton accès à Internet.",
+    "timeout": "Délai dépassé : {host} n'a pas répondu à temps. Réessaie dans un moment.",
+    "http_status": "Erreur {status} renvoyée par {host}.",
+    "unreadable": "Réponse illisible : {host} a peut-être changé de format.",
+    "interrupted": "La connexion avec {host} a été coupée. Réessaie dans un moment.",
+    "the_server": "le serveur",
+    "auth_failed": "Epic a refusé la connexion : le code a peut-être expiré, ou il a été mal copié.",
+    "not_logged_in": "Pas de session valide : connecte-toi d'abord.",
+    "epic_status": "{step} : Epic a répondu {status}.",
+    "epic": "{step} : Epic a renvoyé une erreur.",
+    "no_data_dir": "Impossible de trouver ton dossier personnel.",
+    "hash_mismatch": "Fichier abîmé pendant le téléchargement (SHA-1 différent) : {file}. Réessaie : il sera téléchargé à nouveau.",
+    "conflict": {
+      "one": "{n} fichier existe déjà dans le projet : {first}. Autorise l'écrasement pour le remplacer.",
+      "other": "{n} fichiers existent déjà dans le projet, dont {first}. Autorise l'écrasement pour les remplacer."
+    },
+    "keyring": "Erreur du trousseau système : {detail}",
+    "no_download_info": "Epic n'a donné aucune information de téléchargement pour cette version.",
+    "no_cdn": "Aucun serveur de téléchargement n'a fourni le manifest. Réessaie dans un moment.",
+    "complete_project": "« {title} » est un projet complet : télécharge-le dans un nouveau dossier.",
+    "chunk_unreadable": "Morceau illisible reçu du CDN.",
+    "path_refused": "Chemin refusé dans le manifest : {path}",
+    "thumb_refused": "Vignette refusée : {url}",
+    "bad_project_path": "Chemin de projet invalide.",
+    "no_uplugin": "Aucun fichier .uplugin dans ce plugin.",
+    "not_added": "Cet asset n'a pas été ajouté à ce projet par uehub.",
+    "cant_delete": "Impossible d'effacer {file} : {detail}",
+    "no_xsrf": "epicgames.com n'a pas donné de jeton XSRF.",
+    "no_sid": "epicgames.com n'a pas donné d'identifiant de session.",
+    "no_silent_login": "unrealengine.com refuse la session sans proposer d'autre voie.",
+    "bad_silent_url": "Adresse de connexion silencieuse invalide : {detail}",
+    "session_not_recognized": "unrealengine.com ne reconnaît pas la session après la connexion silencieuse.",
+    "no_engine_zip": "La page Linux ne contient aucun zip du moteur : vérifie que le CLUF est accepté.",
+    "engine_not_offered": "UE {version} n'est pas proposé sur la page Linux.",
+    "bad_url": "Adresse invalide : {detail}",
+    "dir_taken": "{dir} existe déjà et ne contient pas ce moteur : choisis un autre dossier.",
+    "bad_install_dir": "Dossier d'installation invalide.",
+    "zip_status": "Le téléchargement du moteur a échoué : le serveur a répondu {status}.",
+    "extraction": "L'extraction s'est arrêtée : {detail}",
+    "extraction_stopped": "Extraction interrompue.",
+    "zip_without_editor": "Le zip ne contient pas {editor}.",
+    "no_space": "Pas assez de place : il faut environ {needed} libres dans {dir}, il en reste {free}.",
+    "zip": "Zip illisible : {detail}",
+    "file": "{file} : {detail}",
+    "not_ours": "{dir} n'a pas été installé par uehub : supprime-le toi-même si tu en es sûr.",
+    "editor_missing": "{path} introuvable : le moteur est-il complet ?",
+    "editor_wont_start": "UnrealEditor ne démarre pas : {detail}",
+    "asset_not_found": "Asset introuvable : recharge la bibliothèque.",
+    "no_version": "Aucune version téléchargeable.",
+    "project_version": "Version d'Unreal du projet {project} introuvable.",
+    "no_version_for": "« {title} » n'existe pas pour UE {engine} ni pour une version plus ancienne.",
+    "plugin_not_for": "Ce plugin n'existe pas pour UE {engine}.",
+    "eula_first": "Accepte d'abord le CLUF d'Unreal Engine, depuis l'écran Moteurs.",
+    "download_stuck": "Le téléchargement n'avance plus. Réessaie : il reprendra là où il s'est arrêté.",
+    "browser": "Impossible d'ouvrir le navigateur : {detail}",
+    "already_installed": "UE {version} est déjà installé dans {dir}.",
+    "settings_not_saved": "Réglages non enregistrés : {detail}",
+    "no_engine_in": "Aucun moteur enregistré dans {dir}.",
+    "engine_not_installed": "UE {version} n'est pas installé : installe-le depuis l'écran Moteurs.",
+    "asset_queued": "Cet asset est dans la file pour ce projet : retire-le de la file d'abord.",
+    "removal_interrupted": "Retrait interrompu : {detail}",
+    "already_queued": "« {title} » est déjà dans la file.",
+    "package_manager": "Cette copie de uehub se met à jour par ton gestionnaire de paquets.",
+    "no_update": "Aucune mise à jour à installer.",
+    "update_signature": "Signature refusée : la mise à jour téléchargée ne vient peut-être pas de uehub, elle n'a pas été installée.",
+    "update_cancelled": "Installation annulée : le mot de passe n'a pas été donné.",
+    "update_install": "Le gestionnaire de paquets n'a pas pu installer la mise à jour.",
+    "update_no_release": "Le serveur des mises à jour n'a renvoyé aucune version pour ce système.",
+    "update_download": "Le téléchargement de la mise à jour a échoué. Réessaie dans un moment.",
+    "update_failed": "La mise à jour a échoué. Le détail est dans le journal.",
+    "no_log": "uehub n'a pas de dossier pour son journal.",
+    "open_log": "Impossible d'ouvrir le dossier du journal : {detail}"
+  },
+  "summary": {
+    "files": {
+      "one": "{n} fichier, {size}",
+      "other": "{n} fichiers, {size}"
+    },
+    "removed": {
+      "one": "{n} fichier de l'ancienne version effacé.",
+      "other": "{n} fichiers de l'ancienne version effacés."
+    },
+    "converted": "Pas de version pour UE {engine} : celle pour {used} a été installée, Unreal la convertira."
+  },
+  "notify": {
+    "downloaded": "Téléchargement terminé : {title}",
+    "added": "Ajout terminé : {title}",
+    "installed": "Installation terminée : {title}",
+    "body": "{summary} dans {target}",
+    "failed": "Échec : {title}"
+  },
+  "kinds": {
+    "pack": "Pack d'assets",
+    "plugin": "Plugin",
+    "project": "Projet complet"
+  },
+  "removal": {
+    "shared": {
+      "one": "{n} fichier gardé : un autre asset du projet l'utilise aussi.",
+      "other": "{n} fichiers gardés : un autre asset du projet les utilise aussi."
+    },
+    "missing": {
+      "one": "{n} était déjà absent.",
+      "other": "{n} étaient déjà absents."
+    },
+    "deleted": {
+      "one": "{n} fichier supprimé.",
+      "other": "{n} fichiers supprimés."
+    }
+  },
+  "cli": {
+    "about": "Client Fab pour Linux",
+    "help": {
+      "auth_url": "Affiche l'adresse de connexion Epic",
+      "login": "Se connecte avec la valeur d'authorizationCode",
+      "whoami": "Affiche le compte connecté",
+      "library": "Liste ta bibliothèque Fab",
+      "download": "Télécharge un asset de ta bibliothèque",
+      "query": "Titre, morceau de titre ou asset_id",
+      "ue_download": "Version d'Unreal visée, ex. 5.4 (par défaut : la plus récente)",
+      "out": "Dossier de destination (par défaut : ./<titre de l'asset>)",
+      "jobs": "Nombre de chunks téléchargés en parallèle",
+      "add": "Ajoute un asset de ta bibliothèque à un projet Unreal",
+      "project": "Chemin du fichier .uproject",
+      "ue_add": "Version d'Unreal à utiliser (par défaut : celle du projet)",
+      "force": "Écrase les fichiers déjà présents dans le projet",
+      "remove": "Retire d'un projet un asset ajouté par uehub : ses fichiers, puis sa fiche",
+      "query_added": "Titre, morceau de titre ou asset_id, parmi les assets ajoutés au projet",
+      "engines": "Les moteurs Unreal précompilés pour Linux : installés et proposés par Epic",
+      "logout": "Se déconnecte et supprime la session locale",
+      "install": "Télécharge, extrait et enregistre un moteur",
+      "version": "Version à installer, ex. 5.8.3",
+      "dir": "Dossier du moteur (par défaut : ~/UnrealEngine/<version>)"
+    },
+    "auth_open": "1. Ouvre cette page et connecte-toi :\n\n{url}\n",
+    "auth_copy": "2. Copie la valeur de \"authorizationCode\" puis lance :",
+    "signed_in": "Connecté en tant que {name}",
+    "library": {
+      "one": "{n} élément dans ta bibliothèque Fab",
+      "other": "{n} éléments dans ta bibliothèque Fab"
+    },
+    "no_version": "Aucune version de « {title} » pour UE {ue}",
+    "compatible": "Compatible : {versions}",
+    "cant_open": "Impossible d'ouvrir {path}",
+    "ue_expected": "--ue attend une version comme 5.4",
+    "project_version": "Version d'Unreal du projet introuvable : précise --ue 5.x",
+    "project": "Projet {name} (UE {engine})",
+    "plugin_not_for": "Ce plugin n'existe pas pour UE {engine} (versions : {versions})",
+    "converted": "Attention : pas de version {engine}, j'installe celle pour {used} (Unreal la convertira).",
+    "no_added_match": "Aucun asset ajouté par uehub ne correspond à « {query} » dans {project}",
+    "several_added": "Plusieurs assets correspondent, précise : {titles}",
+    "removed": {
+      "one": "« {title} » retiré de {project} : {n} fichier effacé.",
+      "other": "« {title} » retiré de {project} : {n} fichiers effacés."
+    },
+    "signed_out": "Déconnecté.",
+    "no_match": "Aucun asset ne correspond à « {query} »",
+    "several": "Plusieurs assets correspondent :",
+    "refine": "Précise ta recherche",
+    "files": "fichiers",
+    "done": "Terminé : {summary} dans {dir}",
+    "installed_engines": "Moteurs installés :",
+    "none": "aucun",
+    "replaced_by": "(remplacé par {version})",
+    "accept_eula": "Accepte d'abord le CLUF d'Unreal Engine : {url}",
+    "offered_engines": "Moteurs proposés par Epic :",
+    "installed_mark": "(installé)",
+    "updates": "Mises à jour :",
+    "install_hint": "Pour en installer un : uehub engines install 5.8.3",
+    "already_installed": "UE {version} est déjà installé dans {dir} (identifiant {id})",
+    "zip_bar": "{msg:11} [{bar:40}] {decimal_bytes}/{decimal_total_bytes} ({decimal_bytes_per_sec}, reste {eta})",
+    "stuck": "Le téléchargement n'avance plus : relance la commande pour reprendre",
+    "expired": "adresse expirée, j'en demande une nouvelle",
+    "resuming": "connexion coupée, je reprends",
+    "extract_bar": "{msg:11} [{bar:40}] {pos}/{len} fichiers ({eta})",
+    "extracting": "extraction",
+    "installed": {
+      "one": "Installé : UE {version} ({n} fichier) dans {dir}",
+      "other": "Installé : UE {version} ({n} fichiers) dans {dir}"
+    },
+    "registered": "Enregistré dans Install.ini sous l'identifiant {id}",
+    "to_launch": "Pour le lancer : {path}"
+  },
+  "account": {
+    "session_in": "Session rangée dans : {storage}"
+  },
+  "screens": {
+    "library": "Bibliothèque",
+    "engines": "Moteurs"
+  },
+  "common": {
+    "retry": "Réessayer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "launch": "Lancer",
+    "pause": "Pause",
+    "resume": "Reprendre",
+    "reload": "Recharger",
+    "reloading": "Rechargement…",
+    "waiting": "En attente",
+    "paused": "En pause",
+    "update": "Mise à jour",
+    "unknown_version": "Version inconnue",
+    "install_version": "Installer {version}",
+    "published_on": "Publiée le {date}",
+    "time_left": "encore {time}"
+  },
+  "format": {
+    "under_a_minute": "moins d'une minute",
+    "minutes": "{m} min",
+    "hours": "{h} h",
+    "hours_minutes": "{h} h {m} min",
+    "rate": "{size}/s"
+  },
+  "progress": {
+    "preparing": "Préparation…",
+    "chunks": "Morceaux téléchargés {done} / {total}",
+    "files": "Fichiers écrits {done} / {total}",
+    "bytes": "Téléchargé {done} / {total}"
+  },
+  "jobs": {
+    "target": {
+      "download": "Téléchargement dans {target}",
+      "addToProject": "Ajout à {target}",
+      "installEngine": "Installation dans {target}"
+    },
+    "done": {
+      "download": "Téléchargé dans {target}",
+      "addToProject": "Ajouté à {target}",
+      "installEngine": "Installé dans {target}"
+    }
+  },
+  "assets": {
+    "new_build": "Le vendeur a publié une nouvelle build de la version pour {installed}.",
+    "closer_engine": "Une version pour UE {engine} existe : elle remplacera celle pour {installed}."
+  },
+  "login": {
+    "title": "Connexion à Epic Games",
+    "intro": "Tu te connectes sur le site d'Epic : uehub ne voit jamais ton mot de passe.",
+    "step_open": "Connecte-toi sur la page Epic.",
+    "open_page": "Ouvrir la page de connexion",
+    "step_paste": "Colle la valeur de {code} affichée ensuite.",
+    "signing_in": "Connexion…",
+    "sign_in": "Se connecter"
+  },
+  "rail": {
+    "screens": "Écrans",
+    "updates": {
+      "one": "mise à jour",
+      "other": "mises à jour"
+    },
+    "available": "uehub {version} est disponible",
+    "you_have": "Tu as la {version}.",
+    "queue_busy": "La file tourne : elle s'arrêtera au redémarrage et reviendra en pause.",
+    "password": "Ton mot de passe sera demandé pour installer le paquet.",
+    "install_restart": "Installer et redémarrer",
+    "epic_account": "Compte Epic",
+    "account": "Compte : {name}",
+    "sign_out": "Se déconnecter",
+    "dev_build": "Version de développement : pas de mise à jour automatique.",
+    "package_manager": "Mise à jour par ton gestionnaire de paquets.",
+    "checking": "Recherche…",
+    "check": "Rechercher une mise à jour"
+  },
+  "update": {
+    "available": "uehub {version} est disponible.",
+    "up_to_date": "uehub est à jour.",
+    "installing": "Installation…",
+    "downloading": "Téléchargement : {done}",
+    "downloading_of": "Téléchargement : {done} sur {total}"
+  },
+  "log": {
+    "title": "Journal",
+    "hint": "Joins-le à un rapport de bug : jetons, cookies et adresses signées en sont masqués.",
+    "show": "Afficher le journal"
+  },
+  "crash": {
+    "title": "Quelque chose a cassé",
+    "text": "L'interface s'est arrêtée sur une erreur. Elle est dans le journal : joins-le si tu signales le bug.",
+    "reload": "Recharger l'interface"
+  },
+  "library": {
+    "count": {
+      "one": "{n} asset Fab",
+      "other": "{n} assets Fab"
+    },
+    "open_fab": "Ouvrir Fab",
+    "search": "Rechercher un asset",
+    "sort": "Trier par",
+    "sort_fab": "Ordre de Fab",
+    "sort_title": "Titre",
+    "reload_failed": "Impossible de recharger la bibliothèque.",
+    "download_folder": "Dossier où ranger l'asset",
+    "unreal_project": "Projet Unreal",
+    "loading": "Chargement de ta bibliothèque…",
+    "load_failed": "Impossible de charger ta bibliothèque.",
+    "no_match": "Aucun asset ne correspond.",
+    "assets": "Assets",
+    "col_asset": "Asset",
+    "col_type": "Type"
+  },
+  "filters": {
+    "title": "Filtres",
+    "tracking": "Suivi",
+    "updates": "Mises à jour",
+    "added": "Déjà dans un projet",
+    "all": "Tout",
+    "packs": "Packs d'assets",
+    "plugins": "Plugins",
+    "projects": "Projets complets",
+    "compatible": "Compatible avec",
+    "recent_only": "Seulement les récentes",
+    "all_versions": "Toutes les versions ({n})",
+    "my_projects": "Mes projets"
+  },
+  "details": {
+    "title": "Détail de l'asset",
+    "empty": "Choisis un asset pour voir ses versions d'Unreal et l'ajouter à un projet.",
+    "view_on_fab": "Voir sur Fab",
+    "versions": "Versions d'Unreal",
+    "ruler": "Compatible avec Unreal {range}",
+    "complete_project": "C'est un projet complet : télécharge-le dans un dossier, puis ouvre-le dans Unreal.",
+    "add": "Ajouter à un projet",
+    "no_project_version": "Version du projet inconnue.",
+    "nothing_for": "Rien pour UE {engine} ni avant.",
+    "older": "Pas de version {engine} : celle pour {version} sera installée, Unreal la convertira.",
+    "added_on": "Ajouté le {date}, version pour {engine}.",
+    "update": "Mettre à jour",
+    "up_to_date": "À jour",
+    "forget": "Retirer de la liste",
+    "forget_project": "Retirer {name} de la liste",
+    "confirm_remove": {
+      "one": "Supprimer le {n} fichier de cet asset dans {project} ? Ferme le projet dans Unreal avant.",
+      "other": "Supprimer les {n} fichiers de cet asset dans {project} ? Ferme le projet dans Unreal avant."
+    },
+    "remove": "Retirer du projet",
+    "other_project": "Autre projet…",
+    "choose_project": "Choisir un projet…",
+    "overwrite": "Écraser les fichiers déjà présents",
+    "download": "Télécharger dans un dossier…"
+  },
+  "matrix": {
+    "installed": "Sur ce disque",
+    "queued": "Dans la file",
+    "available": "À installer",
+    "branch": "Branche",
+    "latest": "Dernière"
+  },
+  "engines": {
+    "subtitle": "Versions précompilées pour Linux",
+    "folder": "Dossier",
+    "free": "{size} libres",
+    "change": "Changer…",
+    "folder_dialog": "Dossier des moteurs",
+    "launching": "UE {version} démarre : sa fenêtre peut mettre une minute à s'ouvrir.",
+    "opening": "{project} s'ouvre avec UE {version} : la fenêtre peut mettre une minute à s'afficher.",
+    "uninstalled": "UE {version} est désinstallé.",
+    "recent": "Projets récents",
+    "recent_empty": "Les projets auxquels tu ajoutes des assets apparaîtront ici.",
+    "on_disk": "Sur ce disque",
+    "none": "Aucun moteur enregistré sur cet ordinateur.",
+    "version": "Version",
+    "origin": "Origine",
+    "actions": "Actions",
+    "not_uehub": "hors uehub",
+    "deleting": "Suppression…",
+    "confirm_delete": "Supprimer ce dossier ?",
+    "uninstall": "Désinstaller",
+    "published": "Publiées par Epic",
+    "list_failed": "Impossible de lire la liste d'Epic.",
+    "connecting": "Connexion à unrealengine.com…",
+    "eula": "Epic demande d'accepter le contrat de licence d'Unreal Engine (CLUF) avant de proposer le moteur. Accepte-le dans ton navigateur, puis recharge la liste.",
+    "read_eula": "Lire et accepter le CLUF",
+    "eula_accepted": "J'ai accepté, recharger",
+    "stale": "Impossible de rafraîchir la liste, elle date du {date}.",
+    "out": "La {version} est sortie.",
+    "out_on": "La {version} est sortie le {date}.",
+    "in_queue": "Elle est dans la file.",
+    "replaced": "Remplacé par la {version}, qui ouvre maintenant tes projets {branch}.",
+    "can_uninstall": "Tu peux le désinstaller.",
+    "open_with": "Ouvrir avec {version}",
+    "no_engine_for": "Aucun moteur {engine} sur ce disque.",
+    "job_line": "UE {version} : {state}",
+    "job_failed": "échec, voir la file",
+    "job_paused": "en pause",
+    "job_waiting": "en attente"
+  },
+  "inspector": {
+    "title": "Version choisie",
+    "empty": "Choisis une version dans la grille pour l'installer, ou pour suivre son installation.",
+    "replaced": "La {version} est installée : uehub ouvre maintenant tes projets {branch} avec elle.",
+    "can_uninstall": "Tu peux désinstaller celle-ci depuis la liste, pour libérer sa place.",
+    "update_next": "Elle s'installe à côté de la {installed}, et uehub ouvrira ensuite tes projets {branch} avec elle.",
+    "follow": "Suivre l'installation",
+    "see": "Voir la {version}",
+    "remove_from_queue": "Retirer de la file",
+    "extracting": "Extraction",
+    "downloading": "Téléchargement",
+    "paused": "En pause : le téléchargement reprendra là où il s'est arrêté.",
+    "waiting": "En attente : l'installation commencera à son tour dans la file.",
+    "speed": "Vitesse",
+    "last_minute": "Dernière minute",
+    "average": "moyenne {rate}",
+    "disk": "Place sur le disque",
+    "disk_label": "Pendant l'installation : {needed} sur {free} libres",
+    "zip": "Le zip",
+    "extracted": "Le moteur extrait",
+    "about": "environ {size}",
+    "free_after": "Libre ensuite",
+    "zip_deleted": "Le zip est supprimé une fois le moteur extrait.",
+    "no_space": "Pas assez de place : il faut environ {needed} libres, il en reste {free}.",
+    "destination": "Destination"
+  },
+  "queue": {
+    "title": "File d'attente",
+    "dock": "File",
+    "dock_empty": "La file est vide. Ajoute un asset à un projet ou installe un moteur : il apparaîtra ici.",
+    "drawer_empty": "La file est vide. Ajoute un asset à un projet ou télécharge-le : il apparaîtra ici.",
+    "resume_all": "Tout reprendre",
+    "hide": "Masquer",
+    "show": "Tout voir",
+    "show_count": "Tout voir ({n})",
+    "clear_done": "Retirer les terminés",
+    "remove": "Retirer",
+    "remove_job": "Retirer {title} de la file",
+    "done": "Terminé : {summary}"
+  }
+}

@@ -1,0 +1,449 @@
+{
+  "units": {
+    "kb": "{value} kB",
+    "mb": "{value} MB",
+    "gb": "{value} GB"
+  },
+  "storage": {
+    "keyring": "system keyring",
+    "file": "file (no keyring available)"
+  },
+  "steps": {
+    "fab_library": "Reading your Fab library",
+    "asset_manifest": "Reading the asset manifest",
+    "exchange_code": "Getting an exchange code",
+    "epic_sign_in": "Signing in on epicgames.com",
+    "unreal_session": "Opening the unrealengine.com session",
+    "silent_login": "Silent sign-in on unrealengine.com",
+    "eula_check": "Checking the EULA",
+    "linux_page": "Reading the Linux page"
+  },
+  "errors": {
+    "offline": "No connection: can't reach {host}. Check your Internet access.",
+    "timeout": "Timed out: {host} didn't answer in time. Try again in a moment.",
+    "http_status": "Error {status} returned by {host}.",
+    "unreadable": "Unreadable answer: {host} may have changed its format.",
+    "interrupted": "The connection to {host} was cut. Try again in a moment.",
+    "the_server": "the server",
+    "auth_failed": "Epic refused the sign-in: the code may have expired, or it was copied incompletely.",
+    "not_logged_in": "No valid session: sign in first.",
+    "epic_status": "{step}: Epic answered {status}.",
+    "epic": "{step}: Epic returned an error.",
+    "no_data_dir": "Can't find your home folder.",
+    "hash_mismatch": "File damaged during the download (SHA-1 mismatch): {file}. Try again: it will be downloaded anew.",
+    "conflict": {
+      "one": "{n} file already exists in the project: {first}. Allow overwriting to replace it.",
+      "other": "{n} files already exist in the project, including {first}. Allow overwriting to replace them."
+    },
+    "keyring": "System keyring error: {detail}",
+    "no_download_info": "Epic gave no download information for this version.",
+    "no_cdn": "No download server provided the manifest. Try again in a moment.",
+    "complete_project": "“{title}” is a complete project: download it into a new folder.",
+    "chunk_unreadable": "Unreadable chunk received from the CDN.",
+    "path_refused": "Path refused in the manifest: {path}",
+    "thumb_refused": "Thumbnail refused: {url}",
+    "bad_project_path": "Invalid project path.",
+    "no_uplugin": "No .uplugin file in this plugin.",
+    "not_added": "This asset wasn't added to this project by uehub.",
+    "cant_delete": "Can't delete {file}: {detail}",
+    "no_xsrf": "epicgames.com didn't provide an XSRF token.",
+    "no_sid": "epicgames.com didn't provide a session ID.",
+    "no_silent_login": "unrealengine.com rejects the session without offering another way in.",
+    "bad_silent_url": "Invalid silent sign-in address: {detail}",
+    "session_not_recognized": "unrealengine.com doesn't recognize the session after the silent sign-in.",
+    "no_engine_zip": "The Linux page has no engine zip: check that the EULA is accepted.",
+    "engine_not_offered": "UE {version} isn't offered on the Linux page.",
+    "bad_url": "Invalid address: {detail}",
+    "dir_taken": "{dir} already exists and doesn't contain this engine: choose another folder.",
+    "bad_install_dir": "Invalid installation folder.",
+    "zip_status": "The engine download failed: the server answered {status}.",
+    "extraction": "The extraction stopped: {detail}",
+    "extraction_stopped": "Extraction interrupted.",
+    "zip_without_editor": "The zip doesn't contain {editor}.",
+    "no_space": "Not enough space: about {needed} free are needed in {dir}, {free} left.",
+    "zip": "Unreadable zip: {detail}",
+    "file": "{file}: {detail}",
+    "not_ours": "{dir} wasn't installed by uehub: delete it yourself if you're sure.",
+    "editor_missing": "{path} not found: is the engine complete?",
+    "editor_wont_start": "UnrealEditor won't start: {detail}",
+    "asset_not_found": "Asset not found: reload the library.",
+    "no_version": "No downloadable version.",
+    "project_version": "Can't find the Unreal version of the project {project}.",
+    "no_version_for": "“{title}” doesn't exist for UE {engine} or any older version.",
+    "plugin_not_for": "This plugin doesn't exist for UE {engine}.",
+    "eula_first": "Accept the Unreal Engine EULA first, from the Engines screen.",
+    "download_stuck": "The download stopped moving. Try again: it will resume where it stopped.",
+    "browser": "Can't open the browser: {detail}",
+    "already_installed": "UE {version} is already installed in {dir}.",
+    "settings_not_saved": "Settings not saved: {detail}",
+    "no_engine_in": "No engine registered in {dir}.",
+    "engine_not_installed": "UE {version} isn't installed: install it from the Engines screen.",
+    "asset_queued": "This asset is in the queue for this project: remove it from the queue first.",
+    "removal_interrupted": "Removal interrupted: {detail}",
+    "already_queued": "“{title}” is already in the queue.",
+    "package_manager": "This copy of uehub is updated by your package manager.",
+    "no_update": "No update to install.",
+    "update_signature": "Signature rejected: the downloaded update may not come from uehub, so it wasn't installed.",
+    "update_cancelled": "Installation cancelled: the password wasn't given.",
+    "update_install": "The package manager couldn't install the update.",
+    "update_no_release": "The update server returned no release for this system.",
+    "update_download": "The update download failed. Try again in a moment.",
+    "update_failed": "The update failed. The details are in the log.",
+    "no_log": "uehub has no folder for its log.",
+    "open_log": "Can't open the log folder: {detail}"
+  },
+  "summary": {
+    "files": {
+      "one": "{n} file, {size}",
+      "other": "{n} files, {size}"
+    },
+    "removed": {
+      "one": "{n} file from the old version deleted.",
+      "other": "{n} files from the old version deleted."
+    },
+    "converted": "No version for UE {engine}: the one for {used} was installed, Unreal will convert it."
+  },
+  "notify": {
+    "downloaded": "Downloaded: {title}",
+    "added": "Added: {title}",
+    "installed": "Installed: {title}",
+    "body": "{summary} in {target}",
+    "failed": "Failed: {title}"
+  },
+  "kinds": {
+    "pack": "Asset pack",
+    "plugin": "Plugin",
+    "project": "Complete project"
+  },
+  "removal": {
+    "shared": {
+      "one": "{n} file kept: another asset of the project uses it too.",
+      "other": "{n} files kept: another asset of the project uses them too."
+    },
+    "missing": {
+      "one": "{n} was already missing.",
+      "other": "{n} were already missing."
+    },
+    "deleted": {
+      "one": "{n} file deleted.",
+      "other": "{n} files deleted."
+    }
+  },
+  "cli": {
+    "about": "Fab client for Linux",
+    "help": {
+      "auth_url": "Print the Epic sign-in address",
+      "login": "Sign in with the authorizationCode value",
+      "whoami": "Show the signed-in account",
+      "library": "List your Fab library",
+      "download": "Download an asset from your library",
+      "query": "Title, part of a title, or asset_id",
+      "ue_download": "Targeted Unreal version, e.g. 5.4 (default: the newest)",
+      "out": "Destination folder (default: ./<asset title>)",
+      "jobs": "Number of chunks downloaded in parallel",
+      "add": "Add an asset from your library to an Unreal project",
+      "project": "Path of the .uproject file",
+      "ue_add": "Unreal version to use (default: the project's)",
+      "force": "Overwrite files already in the project",
+      "remove": "Remove an asset added by uehub from a project: its files, then its record",
+      "query_added": "Title, part of a title, or asset_id, among the assets added to the project",
+      "engines": "Prebuilt Unreal engines for Linux: installed, and offered by Epic",
+      "logout": "Sign out and delete the local session",
+      "install": "Download, extract and register an engine",
+      "version": "Version to install, e.g. 5.8.3",
+      "dir": "Engine folder (default: ~/UnrealEngine/<version>)"
+    },
+    "auth_open": "1. Open this page and sign in:\n\n{url}\n",
+    "auth_copy": "2. Copy the value of \"authorizationCode\", then run:",
+    "signed_in": "Signed in as {name}",
+    "library": {
+      "one": "{n} item in your Fab library",
+      "other": "{n} items in your Fab library"
+    },
+    "no_version": "No version of “{title}” for UE {ue}",
+    "compatible": "Compatible: {versions}",
+    "cant_open": "Can't open {path}",
+    "ue_expected": "--ue expects a version like 5.4",
+    "project_version": "Can't find the project's Unreal version: pass --ue 5.x",
+    "project": "Project {name} (UE {engine})",
+    "plugin_not_for": "This plugin doesn't exist for UE {engine} (versions: {versions})",
+    "converted": "Warning: no version {engine}, installing the one for {used} (Unreal will convert it).",
+    "no_added_match": "No asset added by uehub matches “{query}” in {project}",
+    "several_added": "Several assets match, be more precise: {titles}",
+    "removed": {
+      "one": "“{title}” removed from {project}: {n} file deleted.",
+      "other": "“{title}” removed from {project}: {n} files deleted."
+    },
+    "signed_out": "Signed out.",
+    "no_match": "No asset matches “{query}”",
+    "several": "Several assets match:",
+    "refine": "Refine your search",
+    "files": "files",
+    "done": "Done: {summary} in {dir}",
+    "installed_engines": "Installed engines:",
+    "none": "none",
+    "replaced_by": "(replaced by {version})",
+    "accept_eula": "Accept the Unreal Engine EULA first: {url}",
+    "offered_engines": "Engines offered by Epic:",
+    "installed_mark": "(installed)",
+    "updates": "Updates:",
+    "install_hint": "To install one: uehub engines install 5.8.3",
+    "already_installed": "UE {version} is already installed in {dir} (ID {id})",
+    "zip_bar": "{msg:11} [{bar:40}] {decimal_bytes}/{decimal_total_bytes} ({decimal_bytes_per_sec}, {eta} left)",
+    "stuck": "The download stopped moving: run the command again to resume",
+    "expired": "address expired, asking for a new one",
+    "resuming": "connection cut, resuming",
+    "extract_bar": "{msg:11} [{bar:40}] {pos}/{len} files ({eta})",
+    "extracting": "extracting",
+    "installed": {
+      "one": "Installed: UE {version} ({n} file) in {dir}",
+      "other": "Installed: UE {version} ({n} files) in {dir}"
+    },
+    "registered": "Registered in Install.ini with the ID {id}",
+    "to_launch": "To launch it: {path}"
+  },
+  "account": {
+    "session_in": "Session stored in: {storage}"
+  },
+  "screens": {
+    "library": "Library",
+    "engines": "Engines"
+  },
+  "common": {
+    "retry": "Try again",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "launch": "Launch",
+    "pause": "Pause",
+    "resume": "Resume",
+    "reload": "Reload",
+    "reloading": "Reloading…",
+    "waiting": "Waiting",
+    "paused": "Paused",
+    "update": "Update",
+    "unknown_version": "Unknown version",
+    "install_version": "Install {version}",
+    "published_on": "Released on {date}",
+    "time_left": "{time} left"
+  },
+  "format": {
+    "under_a_minute": "less than a minute",
+    "minutes": "{m} min",
+    "hours": "{h} h",
+    "hours_minutes": "{h} h {m} min",
+    "rate": "{size}/s"
+  },
+  "progress": {
+    "preparing": "Preparing…",
+    "chunks": "Chunks downloaded {done} / {total}",
+    "files": "Files written {done} / {total}",
+    "bytes": "Downloaded {done} / {total}"
+  },
+  "jobs": {
+    "target": {
+      "download": "Downloading into {target}",
+      "addToProject": "Adding to {target}",
+      "installEngine": "Installing into {target}"
+    },
+    "done": {
+      "download": "Downloaded into {target}",
+      "addToProject": "Added to {target}",
+      "installEngine": "Installed in {target}"
+    }
+  },
+  "assets": {
+    "new_build": "The seller published a new build of the version for {installed}.",
+    "closer_engine": "A version for UE {engine} exists: it will replace the one for {installed}."
+  },
+  "login": {
+    "title": "Sign in to Epic Games",
+    "intro": "You sign in on Epic's website: uehub never sees your password.",
+    "step_open": "Sign in on the Epic page.",
+    "open_page": "Open the sign-in page",
+    "step_paste": "Paste the {code} value shown next.",
+    "signing_in": "Signing in…",
+    "sign_in": "Sign in"
+  },
+  "rail": {
+    "screens": "Screens",
+    "updates": {
+      "one": "update",
+      "other": "updates"
+    },
+    "available": "uehub {version} is available",
+    "you_have": "You have {version}.",
+    "queue_busy": "The queue is running: it will stop at the restart and come back paused.",
+    "password": "Your password will be asked for to install the package.",
+    "install_restart": "Install and restart",
+    "epic_account": "Epic account",
+    "account": "Account: {name}",
+    "sign_out": "Sign out",
+    "dev_build": "Development build: no automatic updates.",
+    "package_manager": "Updated by your package manager.",
+    "checking": "Checking…",
+    "check": "Check for updates"
+  },
+  "update": {
+    "available": "uehub {version} is available.",
+    "up_to_date": "uehub is up to date.",
+    "installing": "Installing…",
+    "downloading": "Downloading: {done}",
+    "downloading_of": "Downloading: {done} of {total}"
+  },
+  "log": {
+    "title": "Log",
+    "hint": "Attach it to a bug report: tokens, cookies and signed addresses are hidden from it.",
+    "show": "Show the log"
+  },
+  "crash": {
+    "title": "Something broke",
+    "text": "The interface stopped on an error. The error is in the log: attach it if you report the bug.",
+    "reload": "Reload the interface"
+  },
+  "library": {
+    "count": {
+      "one": "{n} Fab asset",
+      "other": "{n} Fab assets"
+    },
+    "open_fab": "Open Fab",
+    "search": "Search assets",
+    "sort": "Sort by",
+    "sort_fab": "Fab order",
+    "sort_title": "Title",
+    "reload_failed": "Couldn't reload the library.",
+    "download_folder": "Folder for the asset",
+    "unreal_project": "Unreal project",
+    "loading": "Loading your library…",
+    "load_failed": "Couldn't load your library.",
+    "no_match": "No asset matches.",
+    "assets": "Assets",
+    "col_asset": "Asset",
+    "col_type": "Type"
+  },
+  "filters": {
+    "title": "Filters",
+    "tracking": "Tracking",
+    "updates": "Updates",
+    "added": "Already in a project",
+    "all": "All",
+    "packs": "Asset packs",
+    "plugins": "Plugins",
+    "projects": "Complete projects",
+    "compatible": "Compatible with",
+    "recent_only": "Recent ones only",
+    "all_versions": "All versions ({n})",
+    "my_projects": "My projects"
+  },
+  "details": {
+    "title": "Asset details",
+    "empty": "Pick an asset to see its Unreal versions and add it to a project.",
+    "view_on_fab": "View on Fab",
+    "versions": "Unreal versions",
+    "ruler": "Compatible with Unreal {range}",
+    "complete_project": "This is a complete project: download it into a folder, then open it in Unreal.",
+    "add": "Add to a project",
+    "no_project_version": "Unknown project version.",
+    "nothing_for": "Nothing for UE {engine} or older.",
+    "older": "No version {engine}: the one for {version} will be installed, Unreal will convert it.",
+    "added_on": "Added on {date}, version for {engine}.",
+    "update": "Update",
+    "up_to_date": "Up to date",
+    "forget": "Remove from the list",
+    "forget_project": "Remove {name} from the list",
+    "confirm_remove": {
+      "one": "Delete this asset's {n} file in {project}? Close the project in Unreal first.",
+      "other": "Delete this asset's {n} files in {project}? Close the project in Unreal first."
+    },
+    "remove": "Remove from the project",
+    "other_project": "Other project…",
+    "choose_project": "Choose a project…",
+    "overwrite": "Overwrite files already there",
+    "download": "Download into a folder…"
+  },
+  "matrix": {
+    "installed": "On this disk",
+    "queued": "In the queue",
+    "available": "To install",
+    "branch": "Branch",
+    "latest": "Latest"
+  },
+  "engines": {
+    "subtitle": "Prebuilt versions for Linux",
+    "folder": "Folder",
+    "free": "{size} free",
+    "change": "Change…",
+    "folder_dialog": "Engines folder",
+    "launching": "UE {version} is starting: its window may take a minute to open.",
+    "opening": "{project} is opening with UE {version}: the window may take a minute to appear.",
+    "uninstalled": "UE {version} is uninstalled.",
+    "recent": "Recent projects",
+    "recent_empty": "The projects you add assets to will show up here.",
+    "on_disk": "On this disk",
+    "none": "No engine registered on this computer.",
+    "version": "Version",
+    "origin": "Origin",
+    "actions": "Actions",
+    "not_uehub": "outside uehub",
+    "deleting": "Deleting…",
+    "confirm_delete": "Delete this folder?",
+    "uninstall": "Uninstall",
+    "published": "Published by Epic",
+    "list_failed": "Couldn't read Epic's list.",
+    "connecting": "Connecting to unrealengine.com…",
+    "eula": "Epic asks you to accept the Unreal Engine license agreement (EULA) before offering the engine. Accept it in your browser, then reload the list.",
+    "read_eula": "Read and accept the EULA",
+    "eula_accepted": "I accepted it, reload",
+    "stale": "Couldn't refresh the list, it dates from {date}.",
+    "out": "{version} is out.",
+    "out_on": "{version} came out on {date}.",
+    "in_queue": "It's in the queue.",
+    "replaced": "Replaced by {version}, which now opens your {branch} projects.",
+    "can_uninstall": "You can uninstall it.",
+    "open_with": "Open with {version}",
+    "no_engine_for": "No {engine} engine on this disk.",
+    "job_line": "UE {version}: {state}",
+    "job_failed": "failed, see the queue",
+    "job_paused": "paused",
+    "job_waiting": "waiting"
+  },
+  "inspector": {
+    "title": "Chosen version",
+    "empty": "Pick a version in the grid to install it, or to follow its installation.",
+    "replaced": "{version} is installed: uehub now opens your {branch} projects with it.",
+    "can_uninstall": "You can uninstall this one from the list, to free its space.",
+    "update_next": "It installs next to {installed}, and uehub will then open your {branch} projects with it.",
+    "follow": "Follow the installation",
+    "see": "See {version}",
+    "remove_from_queue": "Remove from the queue",
+    "extracting": "Extracting",
+    "downloading": "Downloading",
+    "paused": "Paused: the download will resume where it stopped.",
+    "waiting": "Waiting: the installation will start when its turn comes in the queue.",
+    "speed": "Speed",
+    "last_minute": "Last minute",
+    "average": "average {rate}",
+    "disk": "Disk space",
+    "disk_label": "During the installation: {needed} of {free} free",
+    "zip": "The zip",
+    "extracted": "The extracted engine",
+    "about": "about {size}",
+    "free_after": "Free afterwards",
+    "zip_deleted": "The zip is deleted once the engine is extracted.",
+    "no_space": "Not enough space: about {needed} free is needed, {free} left.",
+    "destination": "Destination"
+  },
+  "queue": {
+    "title": "Queue",
+    "dock": "Queue",
+    "dock_empty": "The queue is empty. Add an asset to a project or install an engine: it will show up here.",
+    "drawer_empty": "The queue is empty. Add an asset to a project or download it: it will show up here.",
+    "resume_all": "Resume all",
+    "hide": "Hide",
+    "show": "Show all",
+    "show_count": "Show all ({n})",
+    "clear_done": "Remove finished",
+    "remove": "Remove",
+    "remove_job": "Remove {title} from the queue",
+    "done": "Done: {summary}"
+  }
+}

@@ -25,9 +25,7 @@ fn cache(dir: &Path, base: &str) -> ThumbCache {
     ThumbCache {
         dir: dir.to_path_buf(),
         http: reqwest::Client::new(),
-        allowed: Box::leak(Box::new([&*Box::leak(
-            format!("{base}/img/").into_boxed_str(),
-        )])),
+        allowed: Box::leak(format!("{base}/img/").into_boxed_str()),
     }
 }
 
@@ -81,29 +79,21 @@ async fn http_errors_are_not_cached() {
     let dir = tempfile::tempdir().unwrap();
     let c = cache(dir.path(), &base);
     let url = format!("{base}/img/missing.jpg");
-    assert!(matches!(c.get(&url).await, Err(CoreError::Http(_))));
+    assert!(matches!(c.get(&url).await, Err(CoreError::Net(_))));
     assert!(!dir.path().join(file_name(&url)).exists());
     assert!(c.get(&url).await.is_err());
     assert_eq!(hits.load(Ordering::SeqCst), 2);
 }
 
 #[test]
-fn real_prefixes_only_let_fab_and_epic_media_through() {
+fn real_prefix_only_lets_fab_media_through() {
     let c = ThumbCache::new().unwrap();
-    assert_eq!(
-        c.allowed,
-        ["https://media.fab.com/", "https://cdn1.epicgames.com/"]
-    );
+    assert_eq!(c.allowed, "https://media.fab.com/");
     for bad in [
         "https://media.fab.com.evil.com/x.jpg",
         "https://media.fab.com@evil.com/x.jpg",
         "http://media.fab.com/x.jpg",
-        "https://cdn1.epicgames.com.evil.com/x.jpg",
-        "http://cdn1.epicgames.com/x.jpg",
     ] {
-        assert!(
-            !c.allowed.iter().any(|prefix| bad.starts_with(prefix)),
-            "{bad}"
-        );
+        assert!(!bad.starts_with(c.allowed), "{bad}");
     }
 }

@@ -1,12 +1,9 @@
 //! Lecture de la page unrealengine.com/linux.
 //!
 //! Le serveur écrit la liste des zip directement dans la page, en JSON rangé dans un
-//! scripts : { "name": "Linux_Unreal_Engine_5.8.3.zip", "createdAt": …, "size": …,
+//! script : { "name": "Linux_Unreal_Engine_5.8.3.zip", "createdAt": …, "size": …,
 //! "downloadUrl": "https://…" }. Ce JSON est échappé (\" au lieu de ") : on le décode
 //! avant de le lire.
-
-#[cfg(test)]
-mod tests;
 
 use serde::Deserialize;
 
@@ -118,3 +115,6 @@ fn decode_pass(text: &str) -> String {
     }
     out
 }
+
+#[cfg(test)]
+mod tests;

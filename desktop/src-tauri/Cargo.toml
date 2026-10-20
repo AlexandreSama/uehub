@@ -18,15 +18,17 @@ uehub-core.workspace = true
 tauri.workspace = true
 tauri-plugin-opener.workspace = true
 tauri-plugin-dialog.workspace = true
+tauri-plugin-notification.workspace = true
+tauri-plugin-updater.workspace = true
 serde.workspace = true
 tokio.workspace = true
-thiserror.workspace = true
+log.workspace = true
 futures.workspace = true
 percent-encoding.workspace = true
 serde_json.workspace = true
-tauri-plugin-notification.workspace = true
-tauri-plugin-updater.workspace = true
 
 [dev-dependencies]
 # Des dossiers temporaires, effacés à la fin de chaque test
 tempfile.workspace = true
+# Une vraie erreur réseau, pour les phrases du plugin de mise à jour
+reqwest.workspace = true

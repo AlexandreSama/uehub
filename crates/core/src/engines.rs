@@ -6,8 +6,6 @@ mod install;
 mod launch;
 mod page;
 mod session;
-#[cfg(test)]
-mod tests;
 mod updates;
 
 pub use cache::{EngineList, ListedEngine};
@@ -18,8 +16,6 @@ pub use install::{
 pub use launch::{engine_for, launch_editor};
 pub use session::UnrealSession;
 pub use updates::replaced_by;
-
-use crate::CoreError;
 
 /// La page où accepter le CLUF d'Unreal Engine : sans lui, Epic ne propose aucun zip.
 pub const EULA_URL: &str = "https://www.unrealengine.com/eulacheck/unreal?state=%2Flinux";
@@ -59,8 +55,5 @@ fn version_key(version: &str) -> Vec<u32> {
         .collect()
 }
 
-/// Une erreur réseau sans l'adresse appelée : elle peut contenir un code de session
-/// ou une signature de téléchargement.
-fn net(e: reqwest::Error) -> CoreError {
-    CoreError::Http(e.without_url())
-}
+#[cfg(test)]
+mod tests;

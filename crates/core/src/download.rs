@@ -13,7 +13,7 @@ use sha1::{Digest, Sha1};
 use tokio::fs;
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
-use crate::{CoreError, Result};
+use crate::{CoreError, Result, t};
 
 // ---------------------------------------------------------------------------
 // Choisir quoi télécharger
@@ -207,7 +207,6 @@ impl DownloadPlan {
             done += 1;
             on_progress(Progress::Chunks { done, total, bytes });
         }
-
         Ok(())
     }
 
@@ -252,7 +251,7 @@ async fn fetch_chunk(http: &reqwest::Client, cache: &Path, guid: &str, url: &str
         return Ok(0);
     }
 
-    let mut last_error = CoreError::Download(format!("chunk {guid}"));
+    let mut last_error = CoreError::Download(t!("errors.chunk_unreadable"));
     for attempt in 1..=3 {
         match get_and_decode(http, url).await {
             Ok((data, received)) => {
@@ -263,7 +262,7 @@ async fn fetch_chunk(http: &reqwest::Client, cache: &Path, guid: &str, url: &str
                 return Ok(received);
             }
             Err(e) => {
-                log::warn!("chunk {guid}, essai {attempt}/3 : {e}");
+                log::warn!("chunk {guid}, attempt {attempt}/3: {}", e.detail());
                 last_error = e;
                 tokio::time::sleep(Duration::from_secs(attempt)).await;
             }
@@ -282,13 +281,12 @@ async fn get_and_decode(http: &reqwest::Client, url: &str) -> Result<(Vec<u8>, u
         .bytes()
         .await?
         .to_vec();
-
     let received = bytes.len() as u64;
     // Décompression zlib : travail CPU, on le sort du runtime async.
     let chunk = tokio::task::spawn_blocking(move || Chunk::from_vec(bytes))
         .await
         .map_err(|e| CoreError::Download(e.to_string()))?
-        .ok_or_else(|| CoreError::Download(format!("chunk illisible : {url}")))?;
+        .ok_or_else(|| CoreError::Download(t!("errors.chunk_unreadable")))?;
     Ok((chunk.data, received))
 }
 
@@ -302,7 +300,10 @@ fn safe_join(root: &Path, relative: &str) -> Result<PathBuf> {
     if rel.components().all(|c| matches!(c, Component::Normal(_))) {
         Ok(root.join(rel))
     } else {
-        Err(CoreError::Download(format!("chemin refusé : {relative}")))
+        Err(CoreError::Download(t!(
+            "errors.path_refused",
+            path = relative
+        )))
     }
 }
 

@@ -1,4 +1,5 @@
 use super::*;
+use crate::CoreError;
 use crate::test_support::{Reply, Request, dead_address, serve};
 
 /// Comment répond le faux site.
@@ -125,10 +126,7 @@ async fn opens_through_the_silent_login_and_reads_the_page() {
         .err()
         .unwrap()
         .to_string();
-    assert!(
-        err.contains("UE 4.27.2 n'est pas proposé sur la page Linux"),
-        "{err}"
-    );
+    assert_eq!(err, "UE 4.27.2 isn't offered on the Linux page.");
 }
 
 #[tokio::test]
@@ -137,13 +135,17 @@ async fn errors_say_which_step_without_secrets() {
     let err = UnrealSession::open(sites(&base), "WRONG")
         .await
         .err()
-        .unwrap()
-        .to_string();
-    assert!(
-        err.contains("connexion sur epicgames.com : 409 Conflict"),
-        "{err}"
+        .unwrap();
+    // La phrase dit l'étape et le statut ; la réponse d'Epic va dans le journal.
+    assert_eq!(
+        err.to_string(),
+        "Signing in on epicgames.com: Epic answered 409 Conflict."
     );
-    assert!(err.contains("csrf_token_invalid"), "{err}");
+    assert!(
+        err.detail().contains("csrf_token_invalid"),
+        "{}",
+        err.detail()
+    );
 
     let no_silent = Fake {
         silent_works: false,
@@ -155,9 +157,9 @@ async fn errors_say_which_step_without_secrets() {
         .err()
         .unwrap()
         .to_string();
-    assert!(
-        err.contains("ne reconnaît pas la session après la connexion silencieuse"),
-        "{err}"
+    assert_eq!(
+        err,
+        "unrealengine.com doesn't recognize the session after the silent sign-in."
     );
     assert!(!err.contains("SECRET"), "{err}");
 
@@ -170,10 +172,7 @@ async fn errors_say_which_step_without_secrets() {
         .await
         .unwrap();
     let err = session.engine_downloads().await.err().unwrap().to_string();
-    assert!(
-        err.contains("la page Linux ne contient aucun zip du moteur"),
-        "{err}"
-    );
+    assert!(err.starts_with("The Linux page has no engine zip"), "{err}");
 
     // Une requête qui échoue ne montre jamais son adresse : le SID est dedans.
     let dead = dead_address();
@@ -183,9 +182,17 @@ async fn errors_say_which_step_without_secrets() {
         .await
         .err()
         .unwrap();
+    let e = CoreError::from(e);
     let opened = UnrealSession::open(sites(&dead), "CODESECRET").await;
-    let text = format!("{} {:?}", net(e), opened.err().unwrap());
+    let opened = opened.err().unwrap();
+    let text = format!("{e} {e:?} {} {opened:?}", e.detail());
     assert!(!text.contains("SIDSECRET"), "{text}");
+    // Pas de serveur : la phrase « pas de connexion ».
+    assert!(
+        opened
+            .to_string()
+            .starts_with("No connection: can't reach 127.0.0.1.")
+    );
 }
 
 #[tokio::test]

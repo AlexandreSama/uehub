@@ -1,8 +1,5 @@
 //! Les réglages de l'app, rangés dans settings.json à côté de la file (queue.json).
 
-#[cfg(test)]
-mod tests;
-
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
@@ -41,3 +38,6 @@ impl Settings {
 fn file(app: &AppHandle) -> tauri::Result<PathBuf> {
     Ok(app.path().app_data_dir()?.join("settings.json"))
 }
+
+#[cfg(test)]
+mod tests;

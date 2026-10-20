@@ -1,41 +1,41 @@
 /* L'Établi : un fond graphite proche de l'éditeur Unreal, l'ambre pour ce qui est en
    cours et pour l'action principale, le vert pour ce qui est déjà sur le disque. */
 :root {
-    --ground: #23262b;
-    --sunken: #1d2024;
-    --panel: #2a2e34;
-    --raised: #31363d;
-    --line: #3b4149;
-    --seam: #353a41;
-    --row: #2e3238;
-    --text: #e7e4dd;
-    --soft: #cfcbc2;
-    --muted: #a1a3a6;
-    --accent: #e3a63f;
-    --accent-ink: #1d2024;
-    --accent-soft: #3a3221;
-    --installed: #73bfa9;
-    --ruler: #cfc6b4;
-    --danger: #ef7a6a;
-    --pack: #d4b26a;
-    --plugin: #73bfa9;
-    --project: #a98fd6;
+  --ground: #23262b;
+  --sunken: #1d2024;
+  --panel: #2a2e34;
+  --raised: #31363d;
+  --line: #3b4149;
+  --seam: #353a41;
+  --row: #2e3238;
+  --text: #e7e4dd;
+  --soft: #cfcbc2;
+  --muted: #a1a3a6;
+  --accent: #e3a63f;
+  --accent-ink: #1d2024;
+  --accent-soft: #3a3221;
+  --installed: #73bfa9;
+  --ruler: #cfc6b4;
+  --danger: #ef7a6a;
+  --pack: #d4b26a;
+  --plugin: #73bfa9;
+  --project: #a98fd6;
 
-    color-scheme: dark;
-    font-family: "Archivo Variable", system-ui, sans-serif;
-    font-size: 14px;
-    line-height: 1.4;
-    color: var(--text);
-    background: var(--ground);
+  color-scheme: dark;
+  font-family: "Archivo Variable", system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--text);
+  background: var(--ground);
 }
 
 * {
-    box-sizing: border-box;
+  box-sizing: border-box;
 }
 
 body {
-    margin: 0;
-    background: var(--ground);
+  margin: 0;
+  background: var(--ground);
 }
 
 h1,
@@ -45,43 +45,43 @@ p,
 ul,
 ol,
 dl {
-    margin: 0;
+  margin: 0;
 }
 
 code {
-    font-family: ui-monospace, monospace;
-    font-size: 0.92em;
-    color: var(--accent);
+  font-family: ui-monospace, monospace;
+  font-size: 0.92em;
+  color: var(--accent);
 }
 
 .muted {
-    color: var(--muted);
+  color: var(--muted);
 }
 
 .small {
-    font-size: 12px;
+  font-size: 12px;
 }
 
 .num {
-    font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums;
 }
 
 .error {
-    color: var(--danger);
+  color: var(--danger);
 }
 
 .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 :focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* Les petits titres de section : la forme étroite d'Archivo, en gris. */
@@ -94,1492 +94,1490 @@ code {
 .list-head,
 .installed th,
 .matrix thead th {
-    font-size: 12px;
-    font-weight: 600;
-    font-stretch: 80%;
-    letter-spacing: 0.01em;
-    color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  font-stretch: 80%;
+  letter-spacing: 0.01em;
+  color: var(--muted);
 }
 
 /* ---------- Boutons et champs ---------- */
 
 button {
-    font: inherit;
-    font-weight: 500;
-    color: var(--text);
-    background: var(--raised);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 7px 12px;
-    cursor: pointer;
+  font: inherit;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 7px 12px;
+  cursor: pointer;
 }
 
 button:hover:not(:disabled) {
-    border-color: #4f5660;
+  border-color: #4f5660;
 }
 
 button:disabled {
-    opacity: 0.45;
-    cursor: default;
+  opacity: 0.45;
+  cursor: default;
 }
 
 button.primary {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--accent-ink);
-    font-weight: 600;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
 }
 
 button.primary:hover:not(:disabled) {
-    background: #ebb65c;
-    border-color: #ebb65c;
+  background: #ebb65c;
+  border-color: #ebb65c;
 }
 
 button.quiet {
-    background: none;
-    border-color: transparent;
-    color: var(--muted);
+  background: none;
+  border-color: transparent;
+  color: var(--muted);
 }
 
 button.quiet:hover:not(:disabled) {
-    color: var(--text);
-    border-color: transparent;
+  color: var(--text);
+  border-color: transparent;
 }
 
 button.danger {
-    background: none;
-    border-color: var(--danger);
-    color: var(--danger);
+  background: none;
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 input,
 select {
-    font: inherit;
-    color: var(--text);
-    background: var(--sunken);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 7px 10px;
+  font: inherit;
+  color: var(--text);
+  background: var(--sunken);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 7px 10px;
 }
 
 input::placeholder {
-    color: #8a8d91;
+  color: #8a8d91;
 }
 
 .check {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--muted);
-    cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  cursor: pointer;
 }
 
 .check input {
-    accent-color: var(--accent);
-    margin: 0;
+  accent-color: var(--accent);
+  margin: 0;
 }
 
 .split {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
 }
 
 .buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 /* ---------- Pastilles, vignettes, barres ---------- */
 
 .pin {
-    display: inline-block;
-    flex: none;
-    width: 8px;
-    height: 8px;
-    border-radius: 2px;
+  display: inline-block;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
 }
 
 .pin-pack {
-    background: var(--pack);
+  background: var(--pack);
 }
 
 .pin-plugin {
-    background: var(--plugin);
+  background: var(--plugin);
 }
 
 .pin-project {
-    background: var(--project);
+  background: var(--project);
 }
 
 .thumb {
-    display: block;
-    width: 100%;
-    aspect-ratio: 640 / 349;
-    object-fit: cover;
-    border-radius: 4px;
-    background: var(--raised);
+  display: block;
+  width: 100%;
+  aspect-ratio: 640 / 349;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--raised);
 }
 
 .engine-mark {
-    display: grid;
-    place-items: center;
-    background: var(--accent-soft);
-    color: var(--accent);
-    font-weight: 600;
-    font-stretch: 75%;
-    font-size: 13px;
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+  font-stretch: 75%;
+  font-size: 13px;
 }
 
 .bar {
-    flex: 1;
-    height: 6px;
-    border-radius: 3px;
-    background: var(--sunken);
-    overflow: hidden;
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--sunken);
+  overflow: hidden;
 }
 
 .bar > div {
-    height: 100%;
-    background: var(--accent);
-    transition: width 0.2s linear;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s linear;
 }
 
 /* ---------- Mise en page : le rail, l'écran, la file ---------- */
 
 .splash {
-    height: 100vh;
+  height: 100vh;
 }
 
 .app {
-    display: grid;
-    grid-template-columns: 76px minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) auto auto;
-    height: 100vh;
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  height: 100vh;
 }
 
 .rail {
-    grid-row: 1 / -1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    padding: 16px 0 14px;
-    background: var(--sunken);
-    border-right: 1px solid var(--seam);
+  grid-row: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 0 14px;
+  background: var(--sunken);
+  border-right: 1px solid var(--seam);
 }
 
 .wordmark {
-    font-weight: 700;
-    font-stretch: 70%;
-    font-size: 19px;
-    margin-bottom: 18px;
+  font-weight: 700;
+  font-stretch: 70%;
+  font-size: 19px;
+  margin-bottom: 18px;
 }
 
 .rail-button {
-    width: 64px;
-    min-height: 56px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    padding: 6px 0;
-    border: none;
-    background: none;
-    color: var(--muted);
-    font-size: 11px;
-    font-stretch: 75%;
+  width: 64px;
+  min-height: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 0;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 11px;
+  font-stretch: 75%;
 }
 
 .rail-button:hover:not(:disabled) {
-    color: var(--text);
+  color: var(--text);
 }
 
 .rail-button[aria-current="page"] {
-    background: var(--raised);
-    color: var(--text);
+  background: var(--raised);
+  color: var(--text);
 }
 
 /* Le nombre de moteurs à mettre à jour, sur l'icône de Moteurs. */
 .rail-button {
-    position: relative;
+  position: relative;
 }
 
 .rail-count {
-    position: absolute;
-    top: 5px;
-    left: 36px;
-    min-width: 16px;
-    height: 16px;
-    padding: 0 4px;
-    border-radius: 8px;
-    background: var(--accent);
-    color: var(--accent-ink);
-    font-size: 10px;
-    font-weight: 700;
-    font-stretch: 100%;
-    line-height: 16px;
-    text-align: center;
-}
-
-.account {
-    position: relative;
+  position: absolute;
+  top: 5px;
+  left: 36px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 10px;
+  font-weight: 700;
+  font-stretch: 100%;
+  line-height: 16px;
+  text-align: center;
 }
 
 /* En bas du rail : le bouton de mise à jour, s'il y en a une, puis le compte. */
 .rail-foot {
-    margin-top: auto;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
 }
 
 .account,
 .update {
-    position: relative;
+  position: relative;
 }
 
 /* L'ambre de ce qui attend une action, comme l'étiquette « Mise à jour » des assets. */
 .rail-button.update-button,
 .rail-button.update-button:hover {
-    color: var(--accent);
+  color: var(--accent);
 }
 
 .rail-button.update-button[aria-expanded="true"] {
-    background: var(--accent-soft);
+  background: var(--accent-soft);
 }
 
 .avatar {
-    width: 44px;
-    height: 44px;
-    padding: 0;
-    border-radius: 50%;
-    border-color: #4a5059;
-    background: var(--panel);
-    font-weight: 600;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  border-color: #4a5059;
+  background: var(--panel);
+  font-weight: 600;
 }
 
-.account-menu {
-    position: absolute;
-    left: calc(100% + 12px);
-    bottom: 0;
-    z-index: 10;
-    width: 260px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 14px;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+.account-menu,
+.update-menu {
+  position: absolute;
+  left: calc(100% + 12px);
+  bottom: 0;
+  z-index: 10;
+  width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
 }
 
-.account-menu .muted {
-    font-size: 12px;
-    overflow-wrap: anywhere;
+.account-menu .muted,
+.update-menu .muted {
+  margin: 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
 }
 
-.account-menu button {
-    align-self: flex-start;
+.account-menu button,
+.update-menu button {
+  align-self: flex-start;
 }
 
+/* Ce que change la nouvelle version, tel qu'écrit dans latest.json. */
+.update-menu .notes {
+  margin: 0;
+  max-height: 160px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  font-size: 13px;
+}
 
+.update-menu .error {
+  margin: 0;
+  font-size: 12px;
+}
+
+/* La version de uehub, sous le compte. */
+.app-version {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
 
 /* Chaque écran occupe la case à droite du rail, avec son en-tête au-dessus. */
 .library,
 .engines {
-    grid-column: 2;
-    grid-row: 1;
-    min-height: 0;
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
+  grid-column: 2;
+  grid-row: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .screen-head {
-    grid-area: head;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 10px 16px;
-    padding: 12px 20px;
-    border-bottom: 1px solid var(--seam);
+  grid-area: head;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--seam);
 }
 
 .screen-head h1 {
-    font-size: 20px;
-    font-weight: 600;
-    font-stretch: 87.5%;
+  font-size: 20px;
+  font-weight: 600;
+  font-stretch: 87.5%;
 }
 
 .screen-head button.quiet {
-    padding: 4px 6px;
+  padding: 4px 6px;
 }
 
 /* La place de « Rechargement… » : l'en-tête ne bouge pas pendant le rechargement. */
 .screen-head .reload {
-    min-width: 9em;
-    text-align: left;
+  min-width: 9em;
+  text-align: left;
 }
 
 /* Le rechargement ou l'ouverture de Fab a échoué : une ligne sous l'en-tête. */
 .head-error {
-    flex-basis: 100%;
-    margin: 0;
-    font-size: 12px;
-    color: var(--danger);
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 12px;
+  color: var(--danger);
 }
 
 .search {
-    flex: 1 1 240px;
-    max-width: 420px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 0 12px;
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    background: var(--sunken);
-    color: var(--muted);
+  flex: 1 1 240px;
+  max-width: 420px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--sunken);
+  color: var(--muted);
 }
 
 .search:focus-within {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .search input {
-    flex: 1;
-    min-width: 0;
-    padding: 8px 0;
-    border: none;
-    background: none;
-    outline: none;
+  flex: 1;
+  min-width: 0;
+  padding: 8px 0;
+  border: none;
+  background: none;
+  outline: none;
 }
 
 .sort {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--muted);
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
 }
 
 .sort select {
-    padding: 6px 8px;
-    background: var(--panel);
+  padding: 6px 8px;
+  background: var(--panel);
 }
 
 /* ---------- Bibliothèque : filtres, liste, inspecteur ---------- */
 
 .library {
-    grid-template-columns: 200px minmax(0, 1fr) 340px;
-    grid-template-areas:
+  grid-template-columns: 200px minmax(0, 1fr) 340px;
+  grid-template-areas:
     "head head head"
     "filters assets details";
 }
 
 .filters {
-    grid-area: filters;
-    overflow-y: auto;
-    padding: 18px 14px;
-    border-right: 1px solid var(--seam);
-    display: flex;
-    flex-direction: column;
-    gap: 22px;
+  grid-area: filters;
+  overflow-y: auto;
+  padding: 18px 14px;
+  border-right: 1px solid var(--seam);
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
 }
 
 .filters section {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .filters h2 {
-    margin-bottom: 6px;
+  margin-bottom: 6px;
 }
 
 .filter {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 8px;
-    border: none;
-    border-radius: 4px;
-    background: none;
-    font-weight: 400;
-    text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  font-weight: 400;
+  text-align: left;
 }
 
 .filter:hover:not(:disabled) {
-    background: var(--panel);
+  background: var(--panel);
 }
 
 .filter[aria-pressed="true"] {
-    background: var(--raised);
+  background: var(--raised);
 }
 
 .filter-label {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .chip {
-    padding: 3px 8px;
-    border-radius: 4px;
-    background: none;
-    font-size: 12px;
-    font-variant-numeric: tabular-nums;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: none;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
 .chip[aria-pressed="true"] {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--accent-ink);
-    font-weight: 600;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
 }
 
 .filters .more {
-    align-self: flex-start;
-    margin-top: 6px;
-    padding: 4px 0;
-    font-size: 12px;
+  align-self: flex-start;
+  margin-top: 6px;
+  padding: 4px 0;
+  font-size: 12px;
 }
 
 .assets {
-    grid-area: assets;
-    min-width: 0;
-    overflow-y: auto;
+  grid-area: assets;
+  min-width: 0;
+  overflow-y: auto;
 }
 
 .list-head,
 .asset-row {
-    display: grid;
-    grid-template-columns: 76px minmax(0, 1fr) 130px 100px;
-    gap: 14px;
-    align-items: center;
-    padding: 0 20px;
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) 130px 100px;
+  gap: 14px;
+  align-items: center;
+  padding: 0 20px;
 }
 
 /* L'en-tête des colonnes reste en haut quand la liste défile. */
 .list-head {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    padding-block: 9px;
-    background: var(--ground);
-    border-bottom: 1px solid var(--seam);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding-block: 9px;
+  background: var(--ground);
+  border-bottom: 1px solid var(--seam);
 }
 
 .assets ul {
-    list-style: none;
-    padding: 0;
+  list-style: none;
+  padding: 0;
 }
 
 .asset-row {
-    width: 100%;
-    padding-block: 5px;
-    border: none;
-    border-bottom: 1px solid var(--row);
-    border-radius: 0;
-    background: none;
-    font-weight: 400;
-    text-align: left;
+  width: 100%;
+  padding-block: 5px;
+  border: none;
+  border-bottom: 1px solid var(--row);
+  border-radius: 0;
+  background: none;
+  font-weight: 400;
+  text-align: left;
 }
 
 .asset-row:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .asset-row[aria-pressed="true"] {
-    background: #3a3f47;
+  background: #3a3f47;
 }
 
 .asset-row .thumb {
-    border-radius: 3px;
+  border-radius: 3px;
 }
 
 .asset-name {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .asset-name > span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .asset-title {
-    font-weight: 500;
+  font-weight: 500;
 }
 
 /* « Mise à jour » devant le titre d'un asset : l'ambre de ce qui attend une action. */
 .badge {
-    display: inline-block;
-    margin-right: 8px;
-    padding: 0 6px;
-    border-radius: 3px;
-    background: var(--accent-soft);
-    color: var(--accent);
-    font-size: 11px;
-    font-weight: 600;
-    font-stretch: 80%;
-    vertical-align: 1px;
+  display: inline-block;
+  margin-right: 8px;
+  padding: 0 6px;
+  border-radius: 3px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  font-stretch: 80%;
+  vertical-align: 1px;
 }
 
 .update-count {
-    color: var(--accent);
-    font-weight: 600;
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .asset-name .muted {
-    font-size: 12px;
+  font-size: 12px;
 }
 
 .asset-kind {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
 }
 
 .asset-range {
-    font-size: 13px;
-    font-variant-numeric: tabular-nums;
-    color: var(--soft);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--soft);
 }
 
 .list-message {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-    padding: 48px 20px;
-    text-align: center;
-    color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 48px 20px;
+  text-align: center;
+  color: var(--muted);
 }
 
 .details {
-    grid-area: details;
-    overflow-y: auto;
-    padding: 20px;
-    border-left: 1px solid var(--seam);
-    background: var(--panel);
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
+  grid-area: details;
+  overflow-y: auto;
+  padding: 20px;
+  border-left: 1px solid var(--seam);
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .details.empty,
 .inspector.empty {
-    justify-content: center;
-    text-align: center;
-    color: var(--muted);
+  justify-content: center;
+  text-align: center;
+  color: var(--muted);
 }
 
 .details h2 {
-    font-size: 22px;
-    font-weight: 600;
-    font-stretch: 87.5%;
-    line-height: 1.2;
+  font-size: 22px;
+  font-weight: 600;
+  font-stretch: 87.5%;
+  line-height: 1.2;
 }
 
 .kind {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
 }
 
 /* La règle des versions : une case par version, pleine si l'asset la couvre. */
 .ruler {
-    display: grid;
-    gap: 2px;
-    margin-top: -6px;
+  display: grid;
+  gap: 2px;
+  margin-top: -6px;
 }
 
 .ruler span {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-    font-size: 10px;
-    font-stretch: 62%;
-    font-variant-numeric: tabular-nums;
-    color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-stretch: 62%;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
 }
 
 .ruler span::before {
-    content: "";
-    width: 100%;
-    height: 10px;
-    border-radius: 2px;
-    background: var(--line);
+  content: "";
+  width: 100%;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--line);
 }
 
 .ruler .on {
-    color: var(--text);
+  color: var(--text);
 }
 
 .ruler .on::before {
-    background: var(--ruler);
+  background: var(--ruler);
 }
 
 .add {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .recent {
-    list-style: none;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .recent li {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 4px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px;
 }
 
 .project {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 9px 12px;
-    text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  text-align: left;
 }
 
 .project > span + span {
-    color: var(--muted);
+  color: var(--muted);
 }
 
 .project.primary > span + span {
-    color: inherit;
-    font-weight: 500;
+  color: inherit;
+  font-weight: 500;
 }
 
 .project-name {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .forget {
-    padding: 4px 10px;
-    font-size: 18px;
-    line-height: 1;
+  padding: 4px 10px;
+  font-size: 18px;
+  line-height: 1;
 }
 
 .fit {
-    grid-column: 1 / -1;
-    padding: 0 2px 4px;
-    font-size: 12px;
-    color: var(--muted);
+  grid-column: 1 / -1;
+  padding: 0 2px 4px;
+  font-size: 12px;
+  color: var(--muted);
 }
 
 /* « Retirer du projet », au bout de la phrase sous le projet : discret, mais souligné. */
 .fit .inline-action {
-    margin-left: 6px;
-    padding: 0;
-    font-size: 12px;
-    text-decoration: underline;
-    text-underline-offset: 2px;
+  margin-left: 6px;
+  padding: 0;
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 /* La confirmation remplace la phrase : le texte, puis Supprimer et Annuler. */
 .confirm {
-    grid-column: 1 / -1;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px 8px;
-    padding: 2px 2px 4px;
-    font-size: 12px;
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 2px 2px 4px;
+  font-size: 12px;
 }
 
 .confirm span {
-    flex-basis: 100%;
+  flex-basis: 100%;
 }
 
 .confirm button {
-    padding: 3px 10px;
-    font-size: 12px;
+  padding: 3px 10px;
+  font-size: 12px;
 }
 
 /* « Voir sur Fab » au bout de la ligne du type d'asset. */
 .kind .fab-link {
-    margin-left: auto;
-    padding: 2px 4px;
-    font-size: 12px;
+  margin-left: auto;
+  padding: 2px 4px;
+  font-size: 12px;
 }
 
 /* ---------- Moteurs : projets, disque, grille, inspecteur ---------- */
 
 .engines {
-    grid-template-columns: 236px minmax(0, 1fr) 330px;
-    grid-template-areas:
+  grid-template-columns: 236px minmax(0, 1fr) 330px;
+  grid-template-areas:
     "head head head"
     "projects main inspector";
 }
 
 .folder {
-    margin-left: auto;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 10px;
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
 }
 
 .folder-path {
-    max-width: 320px;
-    padding: 6px 10px;
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    background: var(--sunken);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  max-width: 320px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--sunken);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .engine-projects {
-    grid-area: projects;
-    overflow-y: auto;
-    padding: 18px 16px;
-    border-right: 1px solid var(--seam);
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+  grid-area: projects;
+  overflow-y: auto;
+  padding: 18px 16px;
+  border-right: 1px solid var(--seam);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .project-card {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 12px;
-    border-radius: 6px;
-    background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 6px;
+  background: var(--panel);
 }
 
 .project-card .project-name {
-    font-weight: 500;
+  font-weight: 500;
 }
 
 .project-card button {
-    text-align: left;
+  text-align: left;
 }
 
 .engine-main {
-    grid-area: main;
-    min-width: 0;
-    overflow-y: auto;
-    padding: 18px 20px 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 26px;
+  grid-area: main;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 18px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
 }
 
 .engine-main section {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .section-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
 }
 
 .section-head button {
-    padding: 3px 8px;
+  padding: 3px 8px;
 }
 
 .legend {
-    margin-left: auto;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 14px;
-    font-size: 12px;
-    color: var(--muted);
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .legend > span {
-    display: flex;
-    align-items: center;
-    gap: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .swatch {
-    flex: none;
-    width: 12px;
-    height: 12px;
-    border-radius: 3px;
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
 }
 
 .swatch.installed {
-    background: var(--installed);
+  background: var(--installed);
 }
 
 .swatch.queued {
-    border: 2px solid var(--accent);
+  border: 2px solid var(--accent);
 }
 
 .swatch.available {
-    border: 1px solid #4a5059;
+  border: 1px solid #4a5059;
 }
 
 table {
-    width: 100%;
-    border-collapse: collapse;
+  width: 100%;
+  border-collapse: collapse;
 }
 
 .installed th {
-    padding: 6px 10px;
-    text-align: left;
-    border-bottom: 1px solid var(--seam);
+  padding: 6px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--seam);
 }
 
 .installed td {
-    height: 48px;
-    padding: 6px 10px;
-    border-bottom: 1px solid var(--row);
+  height: 48px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--row);
 }
 
 /* Un moteur suivi d'une note : la ligne et sa note ne font qu'un. */
 .installed tr.noted td {
-    height: 40px;
-    padding-bottom: 0;
-    border-bottom: none;
+  height: 40px;
+  padding-bottom: 0;
+  border-bottom: none;
 }
 
 .installed .engine-note-row td {
-    height: auto;
-    padding: 0 10px 10px;
+  height: auto;
+  padding: 0 10px 10px;
 }
 
 .engine-note {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin: 0;
-    font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 13px;
 }
 
 /* L'ambre de ce qui attend une action, comme sur le rail. */
 .engine-note.update {
-    color: var(--accent);
+  color: var(--accent);
 }
 
 .engine-note button {
-    padding: 3px 10px;
-    font-size: 12px;
+  padding: 3px 10px;
+  font-size: 12px;
 }
 
 .engine-version {
-    width: 76px;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
+  width: 76px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .path {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--soft);
 }
 
 /* Dans un tableau, le texte ne se coupe qu'avec une largeur imposée à la cellule. */
 .installed .path {
-    width: 100%;
-    max-width: 0;
+  width: 100%;
+  max-width: 0;
 }
 
 .origin {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  white-space: nowrap;
 }
 
 .origin::before {
-    content: "";
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    border: 1.5px solid var(--muted);
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--muted);
 }
 
 .origin.ours::before {
-    background: var(--installed);
-    border-color: var(--installed);
+  background: var(--installed);
+  border-color: var(--installed);
 }
 
 .installed .actions {
-    text-align: right;
-    white-space: nowrap;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .installed .actions > * + * {
-    margin-left: 6px;
+  margin-left: 6px;
 }
 
 .matrix-box {
-    overflow-x: auto;
+  overflow-x: auto;
 }
 
 .matrix {
-    min-width: 480px;
-    border-collapse: separate;
-    border-spacing: 4px;
+  min-width: 480px;
+  border-collapse: separate;
+  border-spacing: 4px;
 }
 
 .matrix th {
-    padding: 0 0 2px;
-    text-align: center;
+  padding: 0 0 2px;
+  text-align: center;
 }
 
 .matrix th[scope="row"] {
-    width: 52px;
-    padding: 0;
-    text-align: left;
-    font-variant-numeric: tabular-nums;
+  width: 52px;
+  padding: 0;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
 }
 
 .matrix thead th:first-child {
-    text-align: left;
+  text-align: left;
 }
 
 .matrix td {
-    height: 30px;
-    padding: 0;
+  height: 30px;
+  padding: 0;
 }
 
 .matrix .num {
-    width: 92px;
-    padding-left: 8px;
-    text-align: right;
-    font-size: 13px;
-    white-space: nowrap;
+  width: 92px;
+  padding-left: 8px;
+  text-align: right;
+  font-size: 13px;
+  white-space: nowrap;
 }
 
 .cell {
-    width: 100%;
-    height: 30px;
-    padding: 0;
-    border-radius: 4px;
-    background: none;
-    font-size: 12px;
-    font-variant-numeric: tabular-nums;
+  width: 100%;
+  height: 30px;
+  padding: 0;
+  border-radius: 4px;
+  background: none;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
 .cell.installed {
-    background: var(--installed);
-    border-color: var(--installed);
-    color: #14201c;
+  background: var(--installed);
+  border-color: var(--installed);
+  color: #14201c;
 }
 
 .cell.queued {
-    background: var(--accent-soft);
-    border: 2px solid var(--accent);
+  background: var(--accent-soft);
+  border: 2px solid var(--accent);
 }
 
 .cell[aria-pressed="true"] {
-    outline: 2px solid var(--text);
-    outline-offset: 2px;
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
 }
 
 .message {
-    max-width: 66ch;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 14px;
-    padding: 16px 18px;
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    background: var(--panel);
+  max-width: 66ch;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
 }
 
 .inspector {
-    grid-area: inspector;
-    overflow-y: auto;
-    padding: 20px;
-    border-left: 1px solid var(--seam);
-    background: var(--panel);
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
+  grid-area: inspector;
+  overflow-y: auto;
+  padding: 20px;
+  border-left: 1px solid var(--seam);
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .inspector h2 {
-    font-size: 26px;
-    font-weight: 600;
-    font-stretch: 87.5%;
-    line-height: 1.15;
+  font-size: 26px;
+  font-weight: 600;
+  font-stretch: 87.5%;
+  line-height: 1.15;
 }
 
 .block {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .block .buttons {
-    margin-top: 4px;
+  margin-top: 4px;
 }
 
 .speed {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
 }
 
 .speed-now {
-    font-size: 20px;
-    font-weight: 600;
-    font-stretch: 87.5%;
-    font-variant-numeric: tabular-nums;
+  font-size: 20px;
+  font-weight: 600;
+  font-stretch: 87.5%;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Une barre toutes les 2 secondes ; la plus récente, à droite, en ambre. */
 .speed-graph {
-    display: flex;
-    align-items: flex-end;
-    gap: 2px;
-    height: 40px;
-    border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 40px;
+  border-bottom: 1px solid var(--line);
 }
 
 .speed-graph span {
-    flex: 1;
-    border-radius: 1px 1px 0 0;
-    background: #5e646c;
+  flex: 1;
+  border-radius: 1px 1px 0 0;
+  background: #5e646c;
 }
 
 .speed-graph span:last-child {
-    background: var(--accent);
+  background: var(--accent);
 }
 
 /* La place sur le disque : le zip en ambre, le moteur extrait en sable, le reste libre. */
 .disk {
-    display: flex;
-    height: 22px;
-    border-radius: 4px;
-    overflow: hidden;
-    background: var(--sunken);
+  display: flex;
+  height: 22px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--sunken);
 }
 
 .disk-zip {
-    background: var(--accent);
+  background: var(--accent);
 }
 
 .disk-engine {
-    background: var(--ruler);
+  background: var(--ruler);
 }
 
 .disk-free {
-    background: var(--sunken);
-    border: 1px solid var(--line);
+  background: var(--sunken);
+  border: 1px solid var(--line);
 }
 
 .disk-legend {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
 }
 
 .disk-legend div {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .disk-legend dt {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .disk-legend dd {
-    margin: 0;
-    font-variant-numeric: tabular-nums;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 .disk-legend .swatch {
-    width: 10px;
-    height: 10px;
-    border-radius: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
 }
 
 /* ---------- La file : la piste en bas, le panneau au-dessus ---------- */
 
 .dock {
-    grid-column: 2;
-    grid-row: 3;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 10px 20px;
-    border-top: 1px solid var(--seam);
-    background: var(--sunken);
+  grid-column: 2;
+  grid-row: 3;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 20px;
+  border-top: 1px solid var(--seam);
+  background: var(--sunken);
 }
 
 .track {
-    flex: 1;
-    min-width: 0;
-    height: 44px;
-    display: flex;
-    gap: 4px;
-    list-style: none;
-    padding: 0;
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  display: flex;
+  gap: 4px;
+  list-style: none;
+  padding: 0;
 }
 
 .clip {
-    position: relative;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    padding: 0 10px;
-    border-radius: 4px;
-    overflow: hidden;
-    font-size: 12px;
+  position: relative;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 10px;
+  border-radius: 4px;
+  overflow: hidden;
+  font-size: 12px;
 }
 
 .clip.done {
-    flex: 0 1 18%;
-    background: var(--panel);
+  flex: 0 1 18%;
+  background: var(--panel);
 }
 
 .clip.running {
-    flex: 1 1 auto;
-    background: var(--accent-soft);
-    border: 1px solid var(--accent);
+  flex: 1 1 auto;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
 }
 
 .clip.waiting,
 .clip.paused {
-    flex: 0 1 22%;
-    border: 1px dashed #4a5059;
-    color: var(--soft);
+  flex: 0 1 22%;
+  border: 1px dashed #4a5059;
+  color: var(--soft);
 }
 
 .clip.paused {
-    border-style: solid;
+  border-style: solid;
 }
 
 .clip.failed {
-    flex: 0 1 22%;
-    border: 1px solid var(--danger);
+  flex: 0 1 22%;
+  border: 1px solid var(--danger);
 }
 
 .clip.more {
-    flex: none;
-    justify-content: center;
-    border: 1px dashed #4a5059;
-    color: var(--muted);
+  flex: none;
+  justify-content: center;
+  border: 1px dashed #4a5059;
+  color: var(--muted);
 }
 
 .clip.empty {
-    flex: 1;
-    color: var(--muted);
+  flex: 1;
+  color: var(--muted);
 }
 
 /* Le fond du job en cours se remplit avec sa progression. */
 .clip-fill {
-    position: absolute;
-    inset: 0 auto 0 0;
-    background: var(--accent);
-    opacity: 0.35;
-    transition: width 0.2s linear;
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--accent);
+  opacity: 0.35;
+  transition: width 0.2s linear;
 }
 
 .clip-line {
-    position: relative;
-    display: flex;
-    gap: 8px;
-    min-width: 0;
+  position: relative;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
 }
 
 .clip-line > span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .clip-line > span + span {
-    flex: none;
-    margin-left: auto;
+  flex: none;
+  margin-left: auto;
 }
 
 .clip-title {
-    font-weight: 600;
-    color: var(--text);
+  font-weight: 600;
+  color: var(--text);
 }
 
 .clip-rate {
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .dock button {
-    padding: 6px 12px;
+  padding: 6px 12px;
 }
 
 .queue {
-    grid-column: 2;
-    grid-row: 2;
-    max-height: 300px;
-    overflow-y: auto;
-    padding: 12px 20px 14px;
-    border-top: 1px solid var(--seam);
-    background: var(--panel);
+  grid-column: 2;
+  grid-row: 2;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 12px 20px 14px;
+  border-top: 1px solid var(--seam);
+  background: var(--panel);
 }
 
 .queue-head {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
 }
 
 .queue-head h2 {
-    margin-right: auto;
-    font-size: 16px;
-    font-weight: 600;
-    font-stretch: 87.5%;
+  margin-right: auto;
+  font-size: 16px;
+  font-weight: 600;
+  font-stretch: 87.5%;
 }
 
 .queue-head button,
 .queue-actions button {
-    padding: 4px 10px;
-    font-size: 13px;
+  padding: 4px 10px;
+  font-size: 13px;
 }
 
 .queue-list {
-    list-style: none;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .queue-item {
-    display: grid;
-    grid-template-columns: 76px minmax(0, 1fr) 280px 168px;
-    align-items: center;
-    gap: 16px;
-    padding: 6px 8px;
-    border-radius: 6px;
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) 280px 168px;
+  align-items: center;
+  gap: 16px;
+  padding: 6px 8px;
+  border-radius: 6px;
 }
 
 .queue-item.running {
-    background: var(--raised);
+  background: var(--raised);
 }
 
 .queue-what {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .queue-what > span,
 .queue-state {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .queue-title {
-    font-weight: 500;
+  font-weight: 500;
 }
 
 .queue-what .muted {
-    font-size: 12px;
+  font-size: 12px;
 }
 
 .queue-state {
-    font-size: 13px;
+  font-size: 13px;
 }
 
 .queue-state .bar {
-    margin-top: 6px;
+  margin-top: 6px;
 }
 
 .queue-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 2px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
 }
 
 /* ---------- Connexion : un nœud de Blueprint posé sur la grille ---------- */
 
 .login {
-    min-height: 100vh;
-    display: grid;
-    place-items: center;
-    padding: 24px;
-    background-color: var(--ground);
-    background-image:
-            linear-gradient(#2d3137 1px, transparent 1px),
-            linear-gradient(90deg, #2d3137 1px, transparent 1px),
-            linear-gradient(#272a30 1px, transparent 1px),
-            linear-gradient(90deg, #272a30 1px, transparent 1px);
-    background-size:
-            128px 128px,
-            128px 128px,
-            16px 16px,
-            16px 16px;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background-color: var(--ground);
+  background-image:
+    linear-gradient(#2d3137 1px, transparent 1px),
+    linear-gradient(90deg, #2d3137 1px, transparent 1px),
+    linear-gradient(#272a30 1px, transparent 1px),
+    linear-gradient(90deg, #272a30 1px, transparent 1px);
+  background-size:
+    128px 128px,
+    128px 128px,
+    16px 16px,
+    16px 16px;
 }
 
 .node {
-    width: min(460px, 100%);
-    background: rgba(29, 32, 36, 0.97);
-    border: 1px solid #111316;
-    border-radius: 10px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
-    overflow: hidden;
+  width: min(460px, 100%);
+  background: rgba(29, 32, 36, 0.97);
+  border: 1px solid #111316;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
 }
 
 .node-head {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 16px;
-    background: var(--raised);
-    border-bottom: 2px solid var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: var(--raised);
+  border-bottom: 2px solid var(--accent);
 }
 
 .node-head h1 {
-    font-size: 18px;
-    font-weight: 600;
-    font-stretch: 87.5%;
+  font-size: 18px;
+  font-weight: 600;
+  font-stretch: 87.5%;
 }
 
 /* Le pin d'exécution : une flèche, comme dans l'éditeur. */
 .exec {
-    width: 12px;
-    height: 14px;
-    background: var(--accent);
-    clip-path: polygon(0 0, 55% 0, 100% 50%, 55% 100%, 0 100%);
+  width: 12px;
+  height: 14px;
+  background: var(--accent);
+  clip-path: polygon(0 0, 55% 0, 100% 50%, 55% 100%, 0 100%);
 }
 
 .node-body {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    padding: 18px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 20px 20px;
 }
 
 .steps {
-    padding-left: 20px;
+  padding-left: 20px;
 }
 
 .steps li + li {
-    margin-top: 16px;
+  margin-top: 16px;
 }
 
 .steps li::marker {
-    color: var(--muted);
-    font-weight: 600;
+  color: var(--muted);
+  font-weight: 600;
 }
 
 .steps label {
-    display: block;
+  display: block;
 }
 
 .steps button,
 .steps .pin-input {
-    margin-top: 8px;
+  margin-top: 8px;
 }
 
 .pin-input {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
 }
 
 .pin-input .pin {
-    width: 10px;
-    height: 10px;
-    border: 2px solid var(--accent);
-    border-radius: 50%;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
 }
 
 .pin-input input {
-    flex: 1;
+  flex: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {
-    * {
-        transition: none !important;
-    }
+  * {
+    transition: none !important;
+  }
 }
 
-.account-menu,
-.update-menu {
-    position: absolute;
+/* ---------- Quand l'interface plante : le même nœud que la connexion, en rouge ---------- */
+
+.crash .node-head {
+  border-bottom-color: var(--danger);
 }
 
-.account-menu .muted,
-.update-menu .muted {
-    margin: 0;
-    font-size: 12px;
-    overflow-wrap: anywhere;
+.crash .exec {
+  background: var(--danger);
 }
 
-.account-menu button,
-.update-menu button {
-    align-self: flex-start;
-}
-
-/* Ce que change la nouvelle version, tel qu'écrit dans latest.json. */
-.update-menu .notes {
-    margin: 0;
-    max-height: 160px;
-    overflow-y: auto;
-    white-space: pre-wrap;
-    font-size: 13px;
-}
-
-.update-menu .error {
-    margin: 0;
-    font-size: 12px;
-}
-
-/* La version de uehub, sous le compte. */
-.app-version {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 4px;
-    padding-top: 12px;
-    border-top: 1px solid var(--line);
+.crash .error {
+  margin: 0;
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  overflow-wrap: anywhere;
 }

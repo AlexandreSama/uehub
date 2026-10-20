@@ -1,5 +1,5 @@
 // Les petites fonctions d'affichage de api.ts : ce qu'elles écrivent est ce que tu lis.
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
   branchOf,
   compareVersions,
@@ -14,6 +14,10 @@ import {
   type JobStatus,
   type QueueJob,
 } from "./api";
+import { setLang } from "./i18n";
+
+// En français, sauf dans le dernier groupe.
+beforeEach(() => setLang("fr"));
 
 // Un job d'installation de moteur, dans l'état voulu.
 function engineJob(version: string, status: JobStatus): QueueJob {
@@ -118,6 +122,25 @@ describe("les phrases des assets", () => {
     );
     expect(removalText({ deleted: 0, shared: 3, missing: 2 })).toBe(
       "0 fichier supprimé. 3 fichiers gardés : un autre asset du projet les utilise aussi. 2 étaient déjà absents.",
+    );
+  });
+});
+
+describe("en anglais", () => {
+  beforeEach(() => setLang("en"));
+
+  it("écrit tailles, durées, dates et phrases à l'anglaise", () => {
+    expect(formatBytes(1_234_000_000)).toBe("1.2 GB");
+    expect(formatBytes(999)).toBe("1 kB");
+    expect(formatDuration(30)).toBe("less than a minute");
+    expect(formatDay("2026-09-22")).toBe("Sep 22, 2026");
+    expect(engineRange([])).toBe("Unknown version");
+    expect(
+      progressText({ phase: "chunks", done: 33, total: 112, bytes: 9 }),
+    ).toBe("Chunks downloaded 33 / 112");
+    // L'anglais met 0 au pluriel, le français au singulier.
+    expect(removalText({ deleted: 0, shared: 1, missing: 2 })).toBe(
+      "0 files deleted. 1 file kept: another asset of the project uses it too. 2 were already missing.",
     );
   });
 });

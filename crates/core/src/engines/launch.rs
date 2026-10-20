@@ -1,15 +1,12 @@
 //! Lancer l'éditeur d'un moteur installé, seul ou sur un projet.
 
-#[cfg(test)]
-mod tests;
-
 use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
 use super::install::{EDITOR, InstalledEngine};
 use super::version_key;
-use crate::{CoreError, Result, UnrealProject};
+use crate::{CoreError, Result, UnrealProject, t};
 
 /// Le moteur installé qui doit ouvrir ce projet : celui que son .uproject désigne
 /// par identifiant, sinon le plus récent de la même version (5.4 → 5.4.4 plutôt que 5.4.1).
@@ -37,9 +34,9 @@ pub fn engine_for<'a>(
 pub fn launch_editor(engine: &InstalledEngine, project: Option<&Path>) -> Result<()> {
     let editor = engine.dir.join(EDITOR);
     if !editor.is_file() {
-        return Err(CoreError::Engine(format!(
-            "{} introuvable : le moteur est-il complet ?",
-            editor.display()
+        return Err(CoreError::Engine(t!(
+            "errors.editor_missing",
+            path = editor.display()
         )));
     }
     let mut command = Command::new(&editor);
@@ -55,7 +52,7 @@ pub fn launch_editor(engine: &InstalledEngine, project: Option<&Path>) -> Result
         // n'arrête pas l'éditeur avec l'app.
         .process_group(0)
         .spawn()
-        .map_err(|e| CoreError::Engine(format!("UnrealEditor ne démarre pas : {e}")))?;
+        .map_err(|e| CoreError::Engine(t!("errors.editor_wont_start", detail = e)))?;
     // Quand l'éditeur se ferme, ce thread recueille sa fin : sans lui, il resterait
     // un processus « zombie » jusqu'à la fermeture de uehub.
     std::thread::spawn(move || {
@@ -63,3 +60,6 @@ pub fn launch_editor(engine: &InstalledEngine, project: Option<&Path>) -> Result
     });
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;

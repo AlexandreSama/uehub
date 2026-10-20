@@ -77,13 +77,13 @@ fn summary_note_tells_what_the_update_removed() {
     );
     assert_eq!(
         summary(done(1), None).note.as_deref(),
-        Some("1 fichier de l'ancienne version effacé.")
+        Some("1 file from the old version deleted.")
     );
     assert_eq!(
-        summary(done(4), Some("Pas de version 5.4.".into()))
+        summary(done(4), Some("No version 5.4.".into()))
             .note
             .as_deref(),
-        Some("Pas de version 5.4. 4 fichiers de l'ancienne version effacés.")
+        Some("No version 5.4. 4 files from the old version deleted.")
     );
 }
 

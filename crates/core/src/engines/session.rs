@@ -8,9 +8,6 @@
 //! 5. unrealengine.com demande une « connexion silencieuse » : on suit l'adresse qu'il
 //!    indique, et il pose son propre cookie de session.
 
-#[cfg(test)]
-mod tests;
-
 use std::sync::Arc;
 
 use reqwest::cookie::{CookieStore, Jar};
@@ -18,8 +15,8 @@ use reqwest::header::{ACCEPT, HeaderMap, HeaderValue, USER_AGENT};
 use reqwest::{Response, Url};
 use serde_json::Value;
 
-use super::{EngineDownload, EngineList, ListedEngine, net, page};
-use crate::{CoreError, EpicClient, Result};
+use super::{EngineDownload, EngineList, ListedEngine, page};
+use crate::{CoreError, EpicClient, Result, t};
 
 const JSON: &str = "application/json";
 const HTML: &str = "text/html,application/xhtml+xml";
@@ -53,7 +50,7 @@ impl EpicClient {
             .egs
             .try_game_token()
             .await
-            .map_err(|e| CoreError::Api(format!("code d'échange : {e}")))?;
+            .map_err(|e| CoreError::epic(t!("steps.exchange_code"), e))?;
         Ok(token.code)
     }
 
@@ -77,16 +74,17 @@ impl UnrealSession {
         let http = reqwest::Client::builder()
             .default_headers(launcher_headers())
             .cookie_provider(jar.clone())
+            .connect_timeout(crate::CONNECT_TIMEOUT)
+            .read_timeout(crate::READ_TIMEOUT)
             .build()?;
 
         // 1. Le jeton XSRF est posé sur /id : on le lit là où il sera renvoyé.
         let exchange = format!("{}/id/api/exchange", sites.epic);
         http.get(format!("{}/id/api/reputation", sites.epic))
             .send()
-            .await
-            .map_err(net)?;
+            .await?;
         let xsrf = cookie_value(&jar, &parse(&exchange)?, "XSRF-TOKEN")
-            .ok_or_else(|| step("epicgames.com n'a pas donné de jeton XSRF"))?;
+            .ok_or_else(|| step(t!("errors.no_xsrf")))?;
 
         // 2. Connexion sur epicgames.com avec le code d'échange.
         let response = http
@@ -94,32 +92,28 @@ impl UnrealSession {
             .header("x-xsrf-token", xsrf)
             .json(&serde_json::json!({ "exchangeCode": code }))
             .send()
-            .await
-            .map_err(net)?;
-        ensure_ok(response, "connexion sur epicgames.com").await?;
+            .await?;
+        ensure_ok(response, t!("steps.epic_sign_in")).await?;
 
         // 3. L'identifiant de session.
         let redirect: Value = http
             .get(format!("{}/id/api/redirect", sites.epic))
             .header(ACCEPT, JSON)
             .send()
-            .await
-            .map_err(net)?
+            .await?
             .json()
-            .await
-            .map_err(net)?;
+            .await?;
         let sid = redirect
             .get("sid")
             .and_then(Value::as_str)
-            .ok_or_else(|| step("epicgames.com n'a pas donné d'identifiant de session"))?;
+            .ok_or_else(|| step(t!("errors.no_sid")))?;
 
         // 4. unrealengine.com reçoit la session.
         let response = http
             .get(format!("{}/id/api/set-sid?sid={sid}", sites.unreal))
             .send()
-            .await
-            .map_err(net)?;
-        ensure_ok(response, "ouverture de la session unrealengine.com").await?;
+            .await?;
+        ensure_ok(response, t!("steps.unreal_session")).await?;
 
         // 5. La connexion silencieuse, si le site la demande.
         let session = Self { http, sites };
@@ -128,24 +122,14 @@ impl UnrealSession {
             let silent = auth
                 .pointer("/silentLogin/url")
                 .and_then(Value::as_str)
-                .ok_or_else(|| {
-                    step("unrealengine.com refuse la session sans proposer d'autre voie")
-                })?;
+                .ok_or_else(|| step(t!("errors.no_silent_login")))?;
             let url = parse(&format!("{}/", session.sites.unreal))?
                 .join(silent)
-                .map_err(|e| step(&format!("adresse de connexion silencieuse invalide : {e}")))?;
-            let response = session
-                .http
-                .get(url)
-                .header(ACCEPT, HTML)
-                .send()
-                .await
-                .map_err(net)?;
-            ensure_ok(response, "connexion silencieuse sur unrealengine.com").await?;
+                .map_err(|e| step(t!("errors.bad_silent_url", detail = e)))?;
+            let response = session.http.get(url).header(ACCEPT, HTML).send().await?;
+            ensure_ok(response, t!("steps.silent_login")).await?;
             if !logged_in(&session.cosmos_auth().await?) {
-                return Err(step(
-                    "unrealengine.com ne reconnaît pas la session après la connexion silencieuse",
-                ));
+                return Err(step(t!("errors.session_not_recognized")));
             }
         }
         Ok(session)
@@ -156,11 +140,10 @@ impl UnrealSession {
             .get(format!("{}/api/cosmos/auth", self.sites.unreal))
             .header(ACCEPT, JSON)
             .send()
-            .await
-            .map_err(net)?
+            .await?
             .json()
             .await
-            .map_err(net)
+            .map_err(CoreError::from)
     }
 
     /// Le CLUF d'Unreal Engine est-il accepté par ce compte ?
@@ -173,11 +156,27 @@ impl UnrealSession {
             ))
             .header(ACCEPT, JSON)
             .send()
-            .await
-            .map_err(net)?;
-        let response = ensure_ok(response, "vérification du CLUF").await?;
-        let json: Value = response.json().await.map_err(net)?;
+            .await?;
+        let response = ensure_ok(response, t!("steps.eula_check")).await?;
+        let json: Value = response.json().await?;
         Ok(json.get("accepted").and_then(Value::as_bool) == Some(true))
+    }
+
+    /// Les zip du moteur proposés par la page Linux, du plus récent au plus ancien.
+    pub async fn engine_downloads(&self) -> Result<Vec<EngineDownload>> {
+        let response = self
+            .http
+            .get(format!("{}/linux", self.sites.unreal))
+            .header(ACCEPT, HTML)
+            .send()
+            .await?;
+        let response = ensure_ok(response, t!("steps.linux_page")).await?;
+        let html = response.text().await?;
+        let downloads = page::parse_linux_page(&html);
+        if downloads.is_empty() {
+            return Err(step(t!("errors.no_engine_zip")));
+        }
+        Ok(downloads)
     }
 
     /// La liste des moteurs proposés, sans les adresses de téléchargement. Elle est
@@ -196,33 +195,13 @@ impl UnrealSession {
         ))
     }
 
-    /// Les zip du moteur proposés par la page Linux, du plus récent au plus ancien.
-    pub async fn engine_downloads(&self) -> Result<Vec<EngineDownload>> {
-        let response = self
-            .http
-            .get(format!("{}/linux", self.sites.unreal))
-            .header(ACCEPT, HTML)
-            .send()
-            .await
-            .map_err(net)?;
-        let response = ensure_ok(response, "page Linux").await?;
-        let html = response.text().await.map_err(net)?;
-        let downloads = page::parse_linux_page(&html);
-        if downloads.is_empty() {
-            return Err(step(
-                "la page Linux ne contient aucun zip du moteur : vérifie que le CLUF est accepté",
-            ));
-        }
-        Ok(downloads)
-    }
-
     /// Le zip d'une version précise, avec une adresse de téléchargement fraîche.
     pub async fn engine_download(&self, version: &str) -> Result<EngineDownload> {
         self.engine_downloads()
             .await?
             .into_iter()
             .find(|d| d.version == version)
-            .ok_or_else(|| step(&format!("UE {version} n'est pas proposé sur la page Linux")))
+            .ok_or_else(|| step(t!("errors.engine_not_offered", version = version)))
     }
 }
 
@@ -243,24 +222,28 @@ fn logged_in(auth: &Value) -> bool {
     auth.pointer("/account/isLoggedIn").and_then(Value::as_bool) == Some(true)
 }
 
-fn step(message: &str) -> CoreError {
-    CoreError::Api(message.to_string())
+/// Une étape qui n'a pas marché, sans réponse d'Epic à citer.
+fn step(message: String) -> CoreError {
+    CoreError::Api(message)
 }
 
 fn parse(url: &str) -> Result<Url> {
-    Url::parse(url).map_err(|e| step(&format!("adresse invalide : {e}")))
+    Url::parse(url).map_err(|e| step(t!("errors.bad_url", detail = e)))
 }
 
-/// Un statut d'erreur devient une erreur qui dit l'étape et la réponse d'Epic,
-/// sans l'adresse appelée.
-async fn ensure_ok(response: Response, what: &str) -> Result<Response> {
+/// Un statut d'erreur devient une erreur qui dit l'étape et le statut. La réponse
+/// d'Epic ne va que dans le journal ; l'adresse appelée, nulle part.
+async fn ensure_ok(response: Response, step: String) -> Result<Response> {
     if response.status().is_success() {
         return Ok(response);
     }
     let status = response.status();
     let body = response.text().await.unwrap_or_default();
-    let body: String = body.chars().take(300).collect();
-    Err(step(&format!("{what} : {status} {body}")))
+    Err(CoreError::Epic {
+        step,
+        status: Some(status.to_string()),
+        detail: body.chars().take(300).collect(),
+    })
 }
 
 /// La valeur d'un cookie que le client renverrait à cette adresse.
@@ -274,3 +257,6 @@ fn cookie_value(jar: &Jar, url: &Url, name: &str) -> Option<String> {
         .find(|(key, _)| *key == name)
         .map(|(_, value)| value.to_string())
 }
+
+#[cfg(test)]
+mod tests;

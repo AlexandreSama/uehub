@@ -1,9 +1,7 @@
 //! Les commandes que l'interface React appelle avec `invoke`.
 //! Elles traduisent les types du core en JSON simple pour TypeScript.
-//!
-#[cfg(test)]
-mod tests;
 
+use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex as StdMutex;
 use std::time::Duration;
@@ -16,9 +14,9 @@ use uehub_core::{
     AssetKind, AssetUpdate, CoreError, DownloadSummary, Downloaded, EULA_URL, EngineDownload,
     EngineInstall, EngineList, EpicClient, FabAsset, InstallProgress, InstalledEngine, LOGIN_URL,
     PreparedDownload, Progress, ProjectAssets, ProjectVersion, RecentProjects, Removal,
-    UnrealProject, UnrealSession, engine_for, engines_dir, extracted_size, folder_name,
+    UnrealProject, UnrealSession, causes, engine_for, engines_dir, extracted_size, folder_name,
     installed_engines, launch_editor, parse_version, pick_for_project, pick_version, replaced_by,
-    update_for,
+    t, update_for,
 };
 
 use crate::queue::{Job, Queue, Request, Status};
@@ -50,7 +48,7 @@ impl AppState {
             .iter()
             .find(|a| a.asset_id == id)
             .cloned()
-            .ok_or_else(|| Error::Msg("asset introuvable : recharge la bibliothèque".into()))
+            .ok_or_else(|| Error::Msg(t!("errors.asset_not_found")))
     }
 
     /// Comme `asset`, mais recharge la bibliothèque si elle ne contient pas l'asset
@@ -66,21 +64,62 @@ impl AppState {
 }
 
 // ---------------------------------------------------------------------------
-// Erreurs : elles arrivent en JavaScript sous forme de texte
+// Erreurs : elles arrivent en JavaScript sous forme d'une phrase
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug)]
 pub enum Error {
-    #[error(transparent)]
-    Core(#[from] CoreError),
-    #[error(transparent)]
-    Updater(#[from] tauri_plugin_updater::Error),
-    #[error("{0}")]
+    Core(CoreError),
+    /// Une erreur du plugin de mise à jour, autre que le réseau
+    Updater(tauri_plugin_updater::Error),
+    /// Une phrase déjà écrite dans la langue de uehub
     Msg(String),
 }
 
+impl From<CoreError> for Error {
+    fn from(e: CoreError) -> Self {
+        Self::Core(e)
+    }
+}
+
+impl From<tauri_plugin_updater::Error> for Error {
+    fn from(e: tauri_plugin_updater::Error) -> Self {
+        match e {
+            // Le réseau, comme pour Epic : pas de connexion, délai dépassé…
+            tauri_plugin_updater::Error::Reqwest(e) => Self::Core(e.into()),
+            e => Self::Updater(e),
+        }
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Core(e) => e.fmt(f),
+            Self::Updater(e) => f.write_str(&crate::update::sentence(e)),
+            Self::Msg(text) => f.write_str(text),
+        }
+    }
+}
+
+impl std::error::Error for Error {}
+
+impl Error {
+    /// La phrase et sa cause technique : pour le journal, pas pour l'interface.
+    pub fn detail(&self) -> String {
+        match self {
+            Self::Core(e) => e.detail(),
+            Self::Updater(e) => format!("{self} [{}]", causes(e)),
+            Self::Msg(text) => text.clone(),
+        }
+    }
+}
+
 impl Serialize for Error {
+    /// Chaque erreur qui part vers l'interface passe par ici : elle va aussi au journal,
+    /// avec sa cause technique.
     fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+        log::warn!("{}", self.detail());
         serializer.serialize_str(&self.to_string())
     }
 }
@@ -117,6 +156,18 @@ pub struct Summary {
     dir: String,
     /// Remarque à afficher, par exemple quand la version exacte n'existait pas
     note: Option<String>,
+}
+
+impl Summary {
+    /// "61 fichiers, 1,2 Go", comme summaryText côté React.
+    pub fn text(&self) -> String {
+        let size = uehub_core::i18n::bytes(self.bytes);
+        t!("summary.files", n = self.files, size = size)
+    }
+
+    pub fn note(&self) -> Option<&str> {
+        self.note.as_deref()
+    }
 }
 
 #[derive(Serialize)]
@@ -226,21 +277,6 @@ pub struct EngineCatalog {
     engines: Vec<AvailableEngine>,
 }
 
-/// Un moteur déjà enregistré dans Install.ini.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LocalEngine {
-    version: Option<String>,
-    dir: String,
-    /// Installé par uehub : l'écran propose de le désinstaller
-    by_uehub: bool,
-    /// La version plus récente de sa branche qu'Epic propose : "5.8.4" pour une 5.8.3
-    update: Option<String>,
-    /// Un moteur plus récent de sa branche est déjà installé : il ouvre les projets à
-    /// sa place
-    replaced_by: Option<String>,
-}
-
 /// La liste telle que l'écran l'affiche : le jour de mise en ligne, et la place
 /// qu'il faudra une fois le zip extrait.
 fn catalog(list: EngineList, eula_accepted: bool) -> EngineCatalog {
@@ -265,10 +301,25 @@ fn catalog(list: EngineList, eula_accepted: bool) -> EngineCatalog {
     }
 }
 
+/// Un moteur déjà enregistré dans Install.ini.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalEngine {
+    version: Option<String>,
+    dir: String,
+    /// Installé par uehub : l'écran propose de le désinstaller
+    by_uehub: bool,
+    /// La version plus récente de sa branche qu'Epic propose : "5.8.4" pour une 5.8.3
+    update: Option<String>,
+    /// Un moteur plus récent de sa branche est déjà installé : il ouvre les projets à
+    /// sa place
+    replaced_by: Option<String>,
+}
+
 fn account(client: &EpicClient) -> Account {
     Account {
         name: client.display_name().unwrap_or_default(),
-        storage: client.session_storage().into(),
+        storage: client.session_storage(),
     }
 }
 
@@ -315,8 +366,7 @@ fn summary(done: DownloadSummary, note: Option<String>) -> Summary {
     // Une mise à jour efface ce que la nouvelle version n'a plus : on le dit.
     let removed = match done.removed {
         0 => None,
-        1 => Some("1 fichier de l'ancienne version effacé.".to_string()),
-        n => Some(format!("{n} fichiers de l'ancienne version effacés.")),
+        n => Some(t!("summary.removed", n = n)),
     };
     let note = match (note, removed) {
         (Some(note), Some(removed)) => Some(format!("{note} {removed}")),
@@ -330,29 +380,6 @@ fn summary(done: DownloadSummary, note: Option<String>) -> Summary {
     }
 }
 
-impl Summary {
-    /// "61 fichiers, 1,2 Go", comme summaryText côté React.
-    pub fn text(&self) -> String {
-        format!("{} fichiers, {}", self.files, format_bytes(self.bytes))
-    }
-
-    pub fn note(&self) -> Option<&str> {
-        self.note.as_deref()
-    }
-}
-
-/// 1 234 567 890 → "1,2 Go", comme formatBytes côté React.
-fn format_bytes(bytes: u64) -> String {
-    let (value, unit) = match bytes {
-        b if b >= 1_000_000_000 => (b as f64 / 1e9, "Go"),
-        b if b >= 1_000_000 => (b as f64 / 1e6, "Mo"),
-        b => (b as f64 / 1e3, "Ko"),
-    };
-    let text = format!("{value:.1}");
-    let text = text.strip_suffix(".0").unwrap_or(&text);
-    format!("{} {unit}", text.replace('.', ","))
-}
-
 // ---------------------------------------------------------------------------
 // Choisir la version à installer
 // ---------------------------------------------------------------------------
@@ -361,7 +388,7 @@ fn format_bytes(bytes: u64) -> String {
 fn latest_version(asset: &FabAsset) -> Result<ProjectVersion> {
     pick_version(asset, None)
         .cloned()
-        .ok_or_else(|| Error::Msg("aucune version téléchargeable".into()))
+        .ok_or_else(|| Error::Msg(t!("errors.no_version")))
 }
 
 /// Tout ce qu'il faut pour ajouter un asset à un projet.
@@ -375,28 +402,26 @@ struct AddPlan {
 /// Lit le projet et choisit la version de l'asset qui correspond à son moteur.
 fn plan_add(asset: &FabAsset, uproject: &Path) -> Result<AddPlan> {
     let project = UnrealProject::open(uproject)?;
-    let (major, minor) = project.engine.ok_or_else(|| {
-        Error::Msg(format!(
-            "version d'Unreal du projet {} introuvable",
-            project.name
-        ))
-    })?;
+    let (major, minor) = project
+        .engine
+        .ok_or_else(|| Error::Msg(t!("errors.project_version", project = project.name)))?;
+    let engine = format!("{major}.{minor}");
     let (version, exact) = pick_for_project(asset, (major, minor)).ok_or_else(|| {
-        Error::Msg(format!(
-            "« {} » n'existe pas pour UE {major}.{minor} ni pour une version plus ancienne",
-            asset.title
+        Error::Msg(t!(
+            "errors.no_version_for",
+            title = asset.title,
+            engine = engine
         ))
     })?;
     if !exact && AssetKind::of(asset) == AssetKind::Plugin {
-        return Err(Error::Msg(format!(
-            "ce plugin n'existe pas pour UE {major}.{minor}"
-        )));
+        return Err(Error::Msg(t!("errors.plugin_not_for", engine = engine)));
     }
     let note = (!exact).then(|| {
         let used = version.engine_versions.last().map_or("?", String::as_str);
-        format!(
-            "Pas de version pour UE {major}.{minor} : celle pour {} a été installée, Unreal la convertira.",
-            used.replace('_', " ")
+        t!(
+            "summary.converted",
+            engine = engine,
+            used = used.replace('_', " ")
         )
     });
     Ok(AddPlan {
@@ -464,7 +489,7 @@ async fn unreal_session(state: &AppState) -> Result<UnrealSession> {
 }
 
 fn eula_missing() -> Error {
-    Error::Msg("accepte d'abord le CLUF d'Unreal Engine, depuis l'écran Moteurs".into())
+    Error::Msg(t!("errors.eula_first"))
 }
 
 /// Télécharge le zip, l'extrait et enregistre le moteur dans Install.ini.
@@ -488,10 +513,16 @@ async fn install_engine(
         0
     } else {
         install.check_space()?;
+        log::info!(
+            "UE {version}: downloading the zip into {}",
+            install.dir.display()
+        );
         download_zip(state, &install, engine.clone(), &send).await?;
+        log::info!("UE {version}: zip complete, extracting");
         install.extract(&send).await?
     };
-    install.register()?;
+    let id = install.register()?;
+    log::info!("UE {version}: registered in Install.ini as {id}");
     Ok(Summary {
         files,
         bytes: engine.size,
@@ -528,7 +559,7 @@ async fn download_zip(
             stuck + 1
         };
         if stuck >= 3 {
-            return Err(Error::Msg("le téléchargement n'avance plus".into()));
+            return Err(Error::Msg(t!("errors.download_stuck")));
         }
     }
 }
@@ -576,7 +607,7 @@ pub fn open_fab(
 fn open_in_browser(app: &AppHandle, url: &str) -> Result<()> {
     app.opener()
         .open_url(url, None::<&str>)
-        .map_err(|e| Error::Msg(format!("impossible d'ouvrir le navigateur : {e}")))
+        .map_err(|e| Error::Msg(t!("errors.browser", detail = e)))
 }
 
 #[tauri::command]
@@ -658,9 +689,10 @@ fn describe(state: &AppState, request: &Request) -> Result<(String, Option<Strin
         Request::InstallEngine { version, folder } => {
             let dir = folder.join(version);
             if EngineInstall::is_installed_in(version, &dir) {
-                return Err(Error::Msg(format!(
-                    "UE {version} est déjà installé dans {}",
-                    dir.display()
+                return Err(Error::Msg(t!(
+                    "errors.already_installed",
+                    version = version,
+                    dir = dir.display()
                 )));
             }
             EngineInstall::check_dir(version, &dir)?;
@@ -776,7 +808,7 @@ pub fn set_engines_folder(app: AppHandle, folder: PathBuf) -> Result<()> {
     settings.engines_folder = Some(folder);
     settings
         .save(&app)
-        .map_err(|e| Error::Msg(format!("réglages non enregistrés : {e}")))
+        .map_err(|e| Error::Msg(t!("errors.settings_not_saved", detail = e)))
 }
 
 /// La place libre, en octets, sur le disque du dossier des moteurs.
@@ -791,7 +823,7 @@ fn registered_engine(dir: &Path) -> Result<InstalledEngine> {
     installed_engines()?
         .into_iter()
         .find(|e| e.dir == dir)
-        .ok_or_else(|| Error::Msg(format!("aucun moteur enregistré dans {}", dir.display())))
+        .ok_or_else(|| Error::Msg(t!("errors.no_engine_in", dir = dir.display())))
 }
 
 /// Lance l'éditeur d'un moteur installé, sans projet.
@@ -807,9 +839,7 @@ pub fn open_project(uproject: PathBuf) -> Result<()> {
     let installed = installed_engines()?;
     let engine = engine_for(&installed, &project).ok_or_else(|| {
         let version = project.engine_version().unwrap_or_else(|| "?".into());
-        Error::Msg(format!(
-            "UE {version} n'est pas installé : installe-le depuis l'écran Moteurs"
-        ))
+        Error::Msg(t!("errors.engine_not_installed", version = version))
     })?;
     Ok(launch_editor(engine, Some(&project.uproject))?)
 }
@@ -925,15 +955,16 @@ pub async fn remove_asset(
         unfinished && same
     });
     if pending {
-        return Err(Error::Msg(
-            "cet asset est dans la file pour ce projet : retire-le de la file d'abord".into(),
-        ));
+        return Err(Error::Msg(t!("errors.asset_queued")));
     }
     // Des milliers de fichiers à effacer : hors du fil de l'interface.
     let removal = tauri::async_runtime::spawn_blocking(move || {
         ProjectAssets::load(&project.dir).remove(&asset_id)
     })
     .await
-    .map_err(|e| Error::Msg(format!("retrait interrompu : {e}")))??;
+    .map_err(|e| Error::Msg(t!("errors.removal_interrupted", detail = e)))??;
     Ok(removal.into())
 }
+
+#[cfg(test)]
+mod tests;

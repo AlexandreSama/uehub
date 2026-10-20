@@ -21,8 +21,8 @@
     "security": {
       "csp": {
         "default-src": "'self'",
-        "connect-src": "ipc: http://ipc.localhost thumb: http://thumb.localhost",
-        "img-src": "'self' blob:",
+        "connect-src": "ipc: http://ipc.localhost",
+        "img-src": "'self' thumb: http://thumb.localhost",
         "style-src": "'self' 'unsafe-inline'",
         "font-src": "'self'"
       }
@@ -42,7 +42,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDZFODQzNzdGMTMyMjc0NDgKUldSSWRDSVRmemVFYnF4ZW1sb3BTZ2YzZzZ5bzJkNFFYS0hNaklaSk5CU3FIZWJkU1Bhd3QwNFAK",
+      "pubkey": "COLLE ICI LE CONTENU DE ~/.tauri/uehub.key.pub",
       "endpoints": [
         "https://github.com/TON_COMPTE/uehub/releases/latest/download/latest.json"
       ],

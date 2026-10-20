@@ -1,20 +1,21 @@
 mod engines;
-#[cfg(test)]
-mod tests;
 
 use std::path::PathBuf;
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use indicatif::{ProgressBar, ProgressStyle};
+use uehub_core::i18n::{self, Lang};
 use uehub_core::{
     AssetKind, DownloadSummary, EpicClient, FabAsset, LOGIN_URL, Progress, ProjectAssets,
     RecentProjects, UnrealProject, find_assets, folder_name, parse_version, pick_for_project,
-    pick_version,
+    pick_version, t,
 };
 
+// Les textes de l'aide viennent des fichiers de langue : clap les lit quand il construit
+// la commande, après i18n::init.
 #[derive(Parser)]
-#[command(name = "uehub", version, about = "Client Fab pour Linux")]
+#[command(name = "uehub", version, about = t!("cli.about"))]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -22,98 +23,95 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Affiche l'URL de connexion Epic
+    #[command(about = t!("cli.help.auth_url"))]
     AuthUrl,
-    /// Se connecte avec le code `authorizationCode`
+    #[command(about = t!("cli.help.login"))]
     Login { code: String },
-    /// Affiche le compte connecté
+    #[command(about = t!("cli.help.whoami"))]
     Whoami,
-    /// Liste ta bibliothèque Fab
+    #[command(about = t!("cli.help.library"))]
     Library,
-    /// Télécharge un asset de ta bibliothèque
+    #[command(about = t!("cli.help.download"))]
     Download {
-        /// Titre, morceau de titre ou asset_id
+        #[arg(help = t!("cli.help.query"))]
         query: String,
-        /// Version d'Unreal visée, ex. 5.4 (par défaut : la plus récente)
-        #[arg(long)]
+        #[arg(long, help = t!("cli.help.ue_download"))]
         ue: Option<String>,
-        /// Dossier de destination (par défaut : ./<titre de l'asset>)
-        #[arg(long)]
+        #[arg(long, help = t!("cli.help.out"))]
         out: Option<PathBuf>,
-        /// Nombre de chunks téléchargés en parallèle
-        #[arg(long, default_value_t = 8)]
+        #[arg(long, default_value_t = 8, help = t!("cli.help.jobs"))]
         jobs: usize,
     },
-    /// Ajoute un asset de ta bibliothèque à un projet Unreal
+    #[command(about = t!("cli.help.add"))]
     Add {
-        /// Titre, morceau de titre ou asset_id
+        #[arg(help = t!("cli.help.query"))]
         query: String,
-        /// Chemin du fichier .uproject
+        #[arg(help = t!("cli.help.project"))]
         project: PathBuf,
-        /// Version d'Unreal à utiliser (par défaut : celle du projet)
-        #[arg(long)]
+        #[arg(long, help = t!("cli.help.ue_add"))]
         ue: Option<String>,
-        /// Écrase les fichiers déjà présents dans le projet
-        #[arg(long)]
+        #[arg(long, help = t!("cli.help.force"))]
         force: bool,
-        /// Nombre de chunks téléchargés en parallèle
-        #[arg(long, default_value_t = 8)]
+        #[arg(long, default_value_t = 8, help = t!("cli.help.jobs"))]
         jobs: usize,
     },
-    /// Retire d'un projet un asset ajouté par uehub : ses fichiers, puis sa fiche
+    #[command(about = t!("cli.help.remove"))]
     Remove {
-        /// Titre, morceau de titre ou asset_id, parmi les assets ajoutés au projet
+        #[arg(help = t!("cli.help.query_added"))]
         query: String,
-        /// Chemin du fichier .uproject
+        #[arg(help = t!("cli.help.project"))]
         project: PathBuf,
     },
-    /// Les moteurs Unreal précompilés pour Linux : installés et proposés par Epic
+    #[command(about = t!("cli.help.engines"))]
     Engines {
         #[command(subcommand)]
         action: Option<EngineAction>,
     },
-    /// Se déconnecte et supprime la session locale
+    #[command(about = t!("cli.help.logout"))]
     Logout,
 }
 
 #[derive(Subcommand)]
 enum EngineAction {
-    /// Télécharge, extrait et enregistre un moteur
+    #[command(about = t!("cli.help.install"))]
     Install {
-        /// Version à installer, ex. 5.8.3
+        #[arg(help = t!("cli.help.version"))]
         version: String,
-        /// Dossier du moteur (par défaut : ~/UnrealEngine/<version>)
-        #[arg(long)]
+        #[arg(long, help = t!("cli.help.dir"))]
         dir: Option<PathBuf>,
     },
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // La langue du système, avant que clap n'écrive l'aide.
+    i18n::init(Lang::from_system());
     env_logger::init();
     let cli = Cli::parse();
     let mut client = EpicClient::new()?;
 
     match cli.command {
         Command::AuthUrl => {
-            println!("1. Ouvre cette page et connecte-toi :\n\n{LOGIN_URL}\n");
-            println!("2. Copie la valeur de \"authorizationCode\" puis lance :");
+            println!("{}", t!("cli.auth_open", url = LOGIN_URL));
+            println!("{}", t!("cli.auth_copy"));
             println!("   uehub login <CODE>");
         }
         Command::Login { code } => {
             client.login_with_code(&code).await?;
             let name = client.display_name().unwrap_or_default();
-            println!("Connecté en tant que {name}");
-            println!("Session rangée dans : {}", client.session_storage());
+            println!("{}", t!("cli.signed_in", name = name));
+            let storage = client.session_storage();
+            println!("{}", t!("account.session_in", storage = storage));
         }
         Command::Whoami => {
             client.resume().await?;
             println!("{}", client.display_name().unwrap_or_default());
-            println!("Session rangée dans : {}", client.session_storage());
+            let storage = client.session_storage();
+            println!("{}", t!("account.session_in", storage = storage));
         }
         Command::Library => {
             let assets = client.fab_library().await?;
-            println!("{} élément(s) dans ta bibliothèque Fab\n", assets.len());
+            println!("{}\n", t!("cli.library", n = assets.len()));
             for asset in &assets {
                 let versions: Vec<&str> = asset
                     .project_versions
@@ -131,12 +129,15 @@ async fn main() -> Result<()> {
         } => {
             let library = client.fab_library().await?;
             let asset = select_asset(&library, &query)?;
-            let version = pick_version(asset, ue.as_deref())
-                .with_context(|| format!("aucune version de « {} » pour UE {ue:?}", asset.title))?;
+            let version = pick_version(asset, ue.as_deref()).with_context(|| {
+                let ue = ue.as_deref().unwrap_or("?");
+                t!("cli.no_version", title = asset.title, ue = ue)
+            })?;
             let out = out.unwrap_or_else(|| PathBuf::from(folder_name(&asset.title)));
 
             println!("{} → {}", asset.title, out.display());
-            println!("Compatible : {}", version.engine_versions.join(", "));
+            let versions = version.engine_versions.join(", ");
+            println!("{}", t!("cli.compatible", versions = versions));
 
             let bar = progress_bar()?;
             let summary = client
@@ -153,42 +154,29 @@ async fn main() -> Result<()> {
             jobs,
         } => {
             let project = UnrealProject::open(&project)
-                .with_context(|| format!("impossible d'ouvrir {}", project.display()))?;
+                .with_context(|| t!("cli.cant_open", path = project.display()))?;
             let engine = match &ue {
                 Some(v) => parse_version(v.trim_start_matches("UE_"))
-                    .context("--ue attend une version comme 5.4")?,
-                None => project
-                    .engine
-                    .context("version d'Unreal du projet introuvable : précise --ue 5.x")?,
+                    .with_context(|| t!("cli.ue_expected"))?,
+                None => project.engine.with_context(|| t!("cli.project_version"))?,
             };
-            println!("Projet {} (UE {}.{})", project.name, engine.0, engine.1);
+            let ue = format!("{}.{}", engine.0, engine.1);
+            println!("{}", t!("cli.project", name = project.name, engine = ue));
 
             let library = client.fab_library().await?;
             let asset = select_asset(&library, &query)?;
             let kind = AssetKind::of(asset);
-            let (version, exact) = pick_for_project(asset, engine).with_context(|| {
-                format!(
-                    "« {} » n'existe pas pour UE {}.{} ni pour une version plus ancienne",
-                    asset.title, engine.0, engine.1
-                )
-            })?;
+            let (version, exact) = pick_for_project(asset, engine)
+                .with_context(|| t!("errors.no_version_for", title = asset.title, engine = ue))?;
             if !exact {
                 if kind == AssetKind::Plugin {
-                    bail!(
-                        "ce plugin n'existe pas pour UE {}.{} (versions : {})",
-                        engine.0,
-                        engine.1,
-                        version.engine_versions.join(", ")
-                    );
+                    let versions = version.engine_versions.join(", ");
+                    bail!(t!("cli.plugin_not_for", engine = ue, versions = versions));
                 }
-                println!(
-                    "Attention : pas de version {}.{}, j'installe celle pour {} (Unreal la convertira).",
-                    engine.0,
-                    engine.1,
-                    version.engine_versions.last().map_or("?", String::as_str)
-                );
+                let used = version.engine_versions.last().map_or("?", String::as_str);
+                println!("{}", t!("cli.converted", engine = ue, used = used));
             }
-            println!("{} ({kind:?})", asset.title);
+            println!("{} ({})", asset.title, kind_label(kind));
 
             let bar = progress_bar()?;
             let summary = client
@@ -199,13 +187,6 @@ async fn main() -> Result<()> {
             bar.finish_and_clear();
             print_summary(&summary);
 
-            if summary.removed > 0 {
-                println!(
-                    "{} fichier(s) de l'ancienne version effacé(s).",
-                    summary.removed
-                );
-            }
-
             // Pour que ce projet apparaisse aussi dans l'app.
             if let Ok(mut recent) = RecentProjects::load() {
                 let _ = recent.remember(&project.uproject);
@@ -213,7 +194,7 @@ async fn main() -> Result<()> {
         }
         Command::Remove { query, project } => {
             let project = UnrealProject::open(&project)
-                .with_context(|| format!("impossible d'ouvrir {}", project.display()))?;
+                .with_context(|| t!("cli.cant_open", path = project.display()))?;
             // On cherche dans les fiches du projet : pas besoin d'Epic ni de réseau.
             let mut assets = ProjectAssets::load(&project.dir);
             let q = query.to_lowercase();
@@ -225,31 +206,31 @@ async fn main() -> Result<()> {
                 .collect();
             let (asset_id, title) = match found.as_slice() {
                 [one] => one.clone(),
-                [] => bail!(
-                    "aucun asset ajouté par uehub ne correspond à « {query} » dans {}",
-                    project.name
-                ),
-                many => bail!(
-                    "plusieurs assets correspondent, précise : {}",
-                    many.iter()
-                        .map(|(_, t)| t.as_str())
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                ),
+                [] => bail!(t!(
+                    "cli.no_added_match",
+                    query = query,
+                    project = project.name
+                )),
+                many => {
+                    let titles: Vec<&str> = many.iter().map(|(_, title)| title.as_str()).collect();
+                    bail!(t!("cli.several_added", titles = titles.join(", ")))
+                }
             };
             let removal = assets.remove(&asset_id)?;
             println!(
-                "« {title} » retiré de {} : {} fichier(s) effacé(s).",
-                project.name, removal.deleted
+                "{}",
+                t!(
+                    "cli.removed",
+                    n = removal.deleted,
+                    title = title,
+                    project = project.name
+                )
             );
             if removal.shared > 0 {
-                println!(
-                    "{} fichier(s) gardé(s) : un autre asset du projet les utilise aussi.",
-                    removal.shared
-                );
+                println!("{}", t!("removal.shared", n = removal.shared));
             }
             if removal.missing > 0 {
-                println!("{} fichier(s) étaient déjà absents.", removal.missing);
+                println!("{}", t!("removal.missing", n = removal.missing));
             }
         }
         Command::Engines { action: None } => engines::list(&mut client).await?,
@@ -258,7 +239,7 @@ async fn main() -> Result<()> {
         } => engines::install(&mut client, &version, dir).await?,
         Command::Logout => {
             client.logout().await?;
-            println!("Déconnecté.");
+            println!("{}", t!("cli.signed_out"));
         }
     }
     Ok(())
@@ -268,13 +249,13 @@ async fn main() -> Result<()> {
 fn select_asset<'a>(library: &'a [FabAsset], query: &str) -> Result<&'a FabAsset> {
     match find_assets(library, query).as_slice() {
         [one] => Ok(*one),
-        [] => bail!("aucun asset ne correspond à « {query} »"),
+        [] => bail!(t!("cli.no_match", query = query)),
         many => {
-            eprintln!("Plusieurs assets correspondent :");
+            eprintln!("{}", t!("cli.several"));
             for a in many {
                 eprintln!("- {}", a.title);
             }
-            bail!("précise ta recherche");
+            bail!(t!("cli.refine"));
         }
     }
 }
@@ -290,8 +271,8 @@ fn progress_bar() -> Result<ProgressBar> {
 
 fn show_progress(bar: &ProgressBar, p: Progress) {
     let (msg, done, total) = match p {
-        Progress::Chunks { done, total, .. } => ("chunks", done, total),
-        Progress::Files { done, total } => ("fichiers", done, total),
+        Progress::Chunks { done, total, .. } => ("chunks".to_string(), done, total),
+        Progress::Files { done, total } => (t!("cli.files"), done, total),
     };
     bar.set_message(msg);
     bar.set_length(total as u64);
@@ -299,10 +280,25 @@ fn show_progress(bar: &ProgressBar, p: Progress) {
 }
 
 fn print_summary(summary: &DownloadSummary) {
+    let size = i18n::bytes(summary.bytes);
+    let files = t!("summary.files", n = summary.files, size = size);
     println!(
-        "Terminé : {} fichiers, {:.1} Mo dans {}",
-        summary.files,
-        summary.bytes as f64 / 1_000_000.0,
-        summary.dir.display()
+        "{}",
+        t!("cli.done", summary = files, dir = summary.dir.display())
     );
+    if summary.removed > 0 {
+        println!("{}", t!("summary.removed", n = summary.removed));
+    }
 }
+
+/// "Pack d'assets", "Plugin", "Projet complet", comme dans l'app.
+fn kind_label(kind: AssetKind) -> String {
+    match kind {
+        AssetKind::AssetPack => t!("kinds.pack"),
+        AssetKind::Plugin => t!("kinds.plugin"),
+        AssetKind::CompleteProject => t!("kinds.project"),
+    }
+}
+
+#[cfg(test)]
+mod tests;

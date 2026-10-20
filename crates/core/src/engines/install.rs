@@ -1,9 +1,6 @@
 //! Installer un moteur précompilé : télécharger le zip (avec reprise), l'extraire,
 //! puis l'enregistrer dans ~/.config/Epic/UnrealEngine/Install.ini.
 
-#[cfg(test)]
-mod tests;
-
 use std::fs::{self, File};
 use std::io::{self, BufReader, Read};
 use std::os::unix::fs::{PermissionsExt, symlink};
@@ -19,17 +16,14 @@ use reqwest::header::RANGE;
 use tokio::io::AsyncWriteExt;
 use zip::ZipArchive;
 
-use super::{EngineDownload, net, version_key};
-use crate::{CoreError, Result};
+use super::{EngineDownload, version_key};
+use crate::{CoreError, Result, t};
 
 /// L'éditeur, relatif au dossier du moteur : sa présence prouve que l'extraction a marché.
 pub(super) const EDITOR: &str = "Engine/Binaries/Linux/UnrealEditor";
 
 /// Une fois extrait, le moteur pèse environ 1,8 fois son zip (39,8 Go → ~70 Go pour la 5.8).
 const EXTRACT_RATIO: f64 = 1.8;
-
-/// Sans un octet reçu pendant ce temps, la connexion est considérée comme coupée.
-const STALLED: Duration = Duration::from_secs(60);
 
 /// Deux messages d'avancement par seconde au plus : assez pour afficher la vitesse,
 /// sans inonder l'interface quand la connexion est rapide.
@@ -80,10 +74,7 @@ impl EngineInstall {
         };
         Self::check_dir(&download.version, &dir)?;
         // Une connexion muette pendant une minute est coupée : le téléchargement reprendra.
-        let http = reqwest::Client::builder()
-            .connect_timeout(Duration::from_secs(30))
-            .read_timeout(STALLED)
-            .build()?;
+        let http = crate::http_client()?;
         Ok(Self {
             version: download.version.clone(),
             zip: Self::zip_path(&download.version, &dir)?,
@@ -104,9 +95,9 @@ impl EngineInstall {
         if ours || empty {
             return Ok(());
         }
-        Err(CoreError::Download(format!(
-            "{} existe déjà et ne contient pas ce moteur : choisis un autre dossier",
-            dir.display()
+        Err(CoreError::Download(t!(
+            "errors.dir_taken",
+            dir = dir.display()
         )))
     }
 
@@ -115,7 +106,7 @@ impl EngineInstall {
     pub fn zip_path(version: &str, dir: &Path) -> Result<PathBuf> {
         let parent = dir
             .parent()
-            .ok_or_else(|| CoreError::Download("dossier d'installation invalide".into()))?;
+            .ok_or_else(|| CoreError::Download(t!("errors.bad_install_dir")))?;
         Ok(parent.join(format!("Linux_Unreal_Engine_{version}.zip")))
     }
 
@@ -173,8 +164,11 @@ impl EngineInstall {
         {
             Ok(response) => response,
             // Réseau coupé ou serveur muet avant même de répondre : on réessaiera.
-            Err(e) if e.is_connect() || e.is_timeout() => return Ok(Downloaded::Interrupted),
-            Err(e) => return Err(net(e)),
+            Err(e) if e.is_connect() || e.is_timeout() => {
+                log::warn!("engine zip: {}, will resume", CoreError::from(e).detail());
+                return Ok(Downloaded::Interrupted);
+            }
+            Err(e) => return Err(e.into()),
         };
         let mut file = match response.status() {
             // Le serveur reprend là où on en était.
@@ -191,10 +185,14 @@ impl EngineInstall {
                 tokio::fs::File::create(&self.zip).await?
             }
             // Une adresse signée périmée donne 403.
-            StatusCode::FORBIDDEN => return Ok(Downloaded::Expired),
+            StatusCode::FORBIDDEN => {
+                log::info!("engine zip: the address expired, asking for a new one");
+                return Ok(Downloaded::Expired);
+            }
             status => {
-                return Err(CoreError::Download(format!(
-                    "le serveur a répondu {status}"
+                return Err(CoreError::Download(t!(
+                    "errors.zip_status",
+                    status = status
                 )));
             }
         };
@@ -212,7 +210,10 @@ impl EngineInstall {
                 }
                 Ok(None) => break,
                 // Coupure réseau : ce qui est écrit reste, on reprendra.
-                Err(_) => break,
+                Err(e) => {
+                    log::warn!("engine zip: {}, will resume", CoreError::from(e).detail());
+                    break;
+                }
             }
         }
         file.flush().await?;
@@ -248,17 +249,12 @@ impl EngineInstall {
         }
         let files = task
             .await
-            .map_err(|e| CoreError::Download(format!("extraction : {e}")))??;
+            .map_err(|e| CoreError::Download(t!("errors.extraction", detail = e)))??;
 
         if !self.dir.join(EDITOR).is_file() {
-            return Err(CoreError::Download(format!(
-                "le zip ne contient pas {EDITOR}"
-            )));
-        }
-
-        if !self.dir.join(EDITOR).is_file() {
-            return Err(CoreError::Download(format!(
-                "le zip ne contient pas {EDITOR}"
+            return Err(CoreError::Download(t!(
+                "errors.zip_without_editor",
+                editor = EDITOR
             )));
         }
         tokio::fs::write(self.dir.join(MARKER), &self.version).await?;
@@ -329,22 +325,18 @@ fn check_space(dir: &Path, needed: u64) -> Result<()> {
     let existing = existing_parent(dir);
     let available = fs4::available_space(existing)?;
     if available < needed {
-        return Err(CoreError::Download(format!(
-            "pas assez de place : il faut environ {} Go libres dans {}, il en reste {} Go",
-            gigabytes(needed),
-            existing.display(),
-            gigabytes(available)
+        return Err(CoreError::Download(t!(
+            "errors.no_space",
+            needed = crate::i18n::bytes(needed),
+            dir = existing.display(),
+            free = crate::i18n::bytes(available)
         )));
     }
     Ok(())
 }
 
-fn gigabytes(bytes: u64) -> String {
-    format!("{:.0}", bytes as f64 / 1e9)
-}
-
 fn zip_error(e: zip::result::ZipError) -> CoreError {
-    CoreError::Download(format!("zip : {e}"))
+    CoreError::Download(t!("errors.zip", detail = e))
 }
 
 /// Extrait tout le zip dans `dir` et renvoie son nombre d'entrées.
@@ -374,7 +366,7 @@ fn extract_zip(
 
     for i in 0..total {
         if stop.load(Ordering::Relaxed) {
-            return Err(CoreError::Download("extraction interrompue".into()));
+            return Err(CoreError::Download(t!("errors.extraction_stopped")));
         }
         extract_entry(&mut archive, i, root.as_deref(), dir)?;
         if (i + 1) % 200 == 0 || i + 1 == total {
@@ -424,7 +416,11 @@ fn extract_entry(
         if let Err(e) = io::copy(&mut entry, &mut out) {
             drop(out);
             let _ = fs::remove_file(&target);
-            return Err(CoreError::Download(format!("{} : {e}", relative.display())));
+            return Err(CoreError::Download(t!(
+                "errors.file",
+                file = relative.display(),
+                detail = e
+            )));
         }
     }
     // Même pour un fichier déjà là : une coupure a pu arriver avant ce réglage.
@@ -573,9 +569,9 @@ pub async fn uninstall_engine(dir: &Path) -> Result<()> {
 
 async fn uninstall_from(ini: &Path, dir: &Path) -> Result<()> {
     if !dir.join(MARKER).is_file() {
-        return Err(CoreError::Engine(format!(
-            "{} n'a pas été installé par uehub : supprime-le toi-même si tu en es sûr",
-            dir.display()
+        return Err(CoreError::Engine(t!(
+            "errors.not_ours",
+            dir = dir.display()
         )));
     }
     // 1. On le renomme : c'est instantané, et une suppression interrompue laissera un
@@ -637,3 +633,6 @@ fn build_version(dir: &Path) -> Option<String> {
         part("PatchVersion").unwrap_or(0)
     ))
 }
+
+#[cfg(test)]
+mod tests;

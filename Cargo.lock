@@ -5307,7 +5307,7 @@ dependencies = [
 
 [[package]]
 name = "uehub-cli"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -5319,7 +5319,7 @@ dependencies = [
 
 [[package]]
 name = "uehub-core"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
  "directories",
  "egs-api",
@@ -5328,12 +5328,12 @@ dependencies = [
  "futures",
  "keyring-core",
  "log",
+ "regex",
  "reqwest",
  "serde",
  "serde_json",
  "sha1",
  "tempfile",
- "thiserror 2.0.21",
  "tokio",
  "uuid",
  "zbus-secret-service-keyring-store",
@@ -5342,10 +5342,12 @@ dependencies = [
 
 [[package]]
 name = "uehub-desktop"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
  "futures",
+ "log",
  "percent-encoding",
+ "reqwest",
  "serde",
  "serde_json",
  "tauri",
@@ -5355,7 +5357,6 @@ dependencies = [
  "tauri-plugin-opener",
  "tauri-plugin-updater",
  "tempfile",
- "thiserror 2.0.21",
  "tokio",
  "uehub-core",
 ]

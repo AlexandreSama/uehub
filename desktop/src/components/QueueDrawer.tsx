@@ -5,8 +5,10 @@ import {
   summaryText,
   type QueueJob,
 } from "../api";
+import { t } from "../i18n";
 import type { Rate } from "../rates";
-import {EngineMark, ProgressBar, Thumb} from "./Common";
+import { EngineMark, ProgressBar, Thumb } from "./Common";
+import LogButton from "./LogButton";
 
 interface Props {
   jobs: QueueJob[];
@@ -23,26 +25,25 @@ export default function QueueDrawer(props: Props) {
   const { jobs, rates, onPause, onResume, onRemove } = props;
   const anyPaused = jobs.some((j) => j.status.state === "paused");
   const anyDone = jobs.some((j) => j.status.state === "done");
+  const anyFailed = jobs.some((j) => j.status.state === "failed");
 
   return (
-    <section id="queue" className="queue" aria-label="File d'attente">
+    <section id="queue" className="queue" aria-label={t("queue.title")}>
       <header className="queue-head">
-        <h2>File d'attente</h2>
+        <h2>{t("queue.title")}</h2>
+        {anyFailed && <LogButton />}
         {anyPaused && (
-          <button onClick={props.onResumeAll}>Tout reprendre</button>
+          <button onClick={props.onResumeAll}>{t("queue.resume_all")}</button>
         )}
         {anyDone && (
           <button className="quiet" onClick={props.onClearFinished}>
-            Retirer les terminés
+            {t("queue.clear_done")}
           </button>
         )}
       </header>
 
       {jobs.length === 0 ? (
-        <p className="muted">
-          La file est vide. Ajoute un asset à un projet ou télécharge-le : il
-          apparaîtra ici.
-        </p>
+        <p className="muted">{t("queue.drawer_empty")}</p>
       ) : (
         <ol className="queue-list">
           {jobs.map((job) => {
@@ -50,9 +51,9 @@ export default function QueueDrawer(props: Props) {
             return (
               <li key={job.id} className={`queue-item ${state}`}>
                 {job.request.kind === "installEngine" ? (
-                    <EngineMark version={job.request.version} />
+                  <EngineMark version={job.request.version} />
                 ) : (
-                    <Thumb url={job.thumbnail} />
+                  <Thumb url={job.thumbnail} />
                 )}
                 <div className="queue-what">
                   <span className="queue-title">{job.title}</span>
@@ -64,20 +65,22 @@ export default function QueueDrawer(props: Props) {
                 <div className="queue-actions">
                   {(state === "running" || state === "waiting") && (
                     <button className="quiet" onClick={() => onPause(job.id)}>
-                      Pause
+                      {t("common.pause")}
                     </button>
                   )}
                   {(state === "paused" || state === "failed") && (
                     <button className="quiet" onClick={() => onResume(job.id)}>
-                      {state === "paused" ? "Reprendre" : "Réessayer"}
+                      {state === "paused"
+                        ? t("common.resume")
+                        : t("common.retry")}
                     </button>
                   )}
                   <button
                     className="quiet"
-                    aria-label={`Retirer ${job.title} de la file`}
+                    aria-label={t("queue.remove_job", { title: job.title })}
                     onClick={() => onRemove(job.id)}
                   >
-                    Retirer
+                    {t("queue.remove")}
                   </button>
                 </div>
               </li>
@@ -94,20 +97,20 @@ function JobState({ job, rate }: { job: QueueJob; rate?: Rate }) {
   switch (status.state) {
     case "running":
       return (
-          <div className="queue-state">
-            {progressText(job.progress)}
-            {rate?.speed != null && `, ${formatRate(rate.speed)}`}
-            <ProgressBar progress={job.progress} />
-          </div>
+        <div className="queue-state">
+          {progressText(job.progress)}
+          {rate?.speed != null && `, ${formatRate(rate.speed)}`}
+          <ProgressBar progress={job.progress} />
+        </div>
       );
     case "waiting":
-      return <div className="queue-state muted">En attente</div>;
+      return <div className="queue-state muted">{t("common.waiting")}</div>;
     case "paused":
-      return <div className="queue-state muted">En pause</div>;
+      return <div className="queue-state muted">{t("common.paused")}</div>;
     case "done":
       return (
         <div className="queue-state" title={status.summary.note ?? undefined}>
-          Terminé : {summaryText(status.summary)}
+          {t("queue.done", { summary: summaryText(status.summary) })}
         </div>
       );
     case "failed":

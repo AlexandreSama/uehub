@@ -334,7 +334,7 @@ async fn stop_flag_and_corruption() {
     let err = extract_zip(&install.zip, &install.dir, &stop, &|_| {})
         .unwrap_err()
         .to_string();
-    assert!(err.contains("extraction interrompue"), "{err}");
+    assert_eq!(err, "Extraction interrupted.");
     // Le garde lève le drapeau quand le future est abandonné.
     let flag = Arc::new(AtomicBool::new(false));
     drop(StopOnDrop(flag.clone()));
@@ -361,11 +361,8 @@ fn space_check_and_modes() {
     let err = check_space(Path::new("/tmp/does/not/exist/yet"), u64::MAX / 2)
         .unwrap_err()
         .to_string();
-    assert!(
-        err.starts_with("téléchargement : pas assez de place : il faut environ"),
-        "{err}"
-    );
-    assert!(err.contains("dans /tmp"), "{err}");
+    assert!(err.starts_with("Not enough space: about "), "{err}");
+    assert!(err.contains(" GB free are needed in /tmp,"), "{err}");
     assert!(check_space(Path::new("/tmp/x"), 1).is_ok());
     assert_eq!(file_mode(Some(0o100755), Path::new("a")), 0o755);
     assert_eq!(file_mode(Some(0o100444), Path::new("a")), 0o644);
@@ -461,7 +458,7 @@ async fn a_silent_connection_counts_as_interrupted() {
     assert_eq!(second.unwrap(), Downloaded::Complete);
     assert_eq!(fs::read(&install.zip).unwrap(), data);
     assert_eq!(*seen.lock().unwrap(), ["Some(0)", "Some(500)"]);
-    assert!(STALLED >= std::time::Duration::from_secs(30));
+    assert!(crate::READ_TIMEOUT >= std::time::Duration::from_secs(30));
     // Personne n'écoute : une interruption aussi (c'est l'appelant qui compte les essais).
     let dead = dead_address();
     let closed =
@@ -487,7 +484,7 @@ async fn folder_checks_and_discard() {
         .unwrap()
         .to_string();
     assert!(
-        err.contains("mine existe déjà et ne contient pas ce moteur"),
+        err.contains("mine already exists and doesn't contain this engine"),
         "{err}"
     );
     // Une installation à nous, inachevée (le zip est à côté) : acceptée, pour reprendre.
@@ -542,7 +539,7 @@ async fn uninstall_only_what_uehub_installed() {
 
     // Pas à nous : refusé, rien n'est touché.
     let err = uninstall_from(&ini, &theirs).await.unwrap_err().to_string();
-    assert!(err.contains("n'a pas été installé par uehub"), "{err}");
+    assert!(err.contains("wasn't installed by uehub"), "{err}");
     assert!(theirs.join(EDITOR).exists());
     assert!(fs::read_to_string(&ini).unwrap().contains(&b));
 

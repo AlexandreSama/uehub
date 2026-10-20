@@ -190,7 +190,7 @@ fn add_assigns_ids_and_refuses_duplicates_until_done() {
     jobs.add(job(add_to("a", "/p/P.uproject"))).unwrap();
     jobs.add(job(download("a", "/f"))).unwrap(); // même asset, autre destination : d'accord
     let err = jobs.add(job(add_to("a", "/p/P.uproject"))).unwrap_err();
-    assert!(err.contains("déjà dans la file"), "{err}");
+    assert_eq!(err, "“Megascans: Grass” is already in the queue.");
     assert_eq!(
         states(&jobs),
         [(1, "waiting".into()), (2, "waiting".into())]

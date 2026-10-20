@@ -41,7 +41,7 @@ fn round_trip(store: &SessionStore) {
 fn keyring_round_trip_leaves_no_file() {
     let dir = tempfile::tempdir().unwrap();
     let store = store(dir.path(), Some(mock_keyring()));
-    assert_eq!(store.backend(), "trousseau système");
+    assert_eq!(store.backend(), "system keyring");
     store.save(&sample()).unwrap();
     assert!(
         !store.file.exists(),
@@ -55,7 +55,7 @@ fn keyring_round_trip_leaves_no_file() {
 fn without_keyring_the_file_is_private() {
     let dir = tempfile::tempdir().unwrap();
     let store = store(&dir.path().join("deep"), None);
-    assert_eq!(store.backend(), "fichier (aucun trousseau disponible)");
+    assert_eq!(store.backend(), "file (no keyring available)");
     store.save(&sample()).unwrap();
     let mode = fs::metadata(&store.file).unwrap().permissions().mode();
     assert_eq!(mode & 0o777, 0o600, "lisible par toi seul");

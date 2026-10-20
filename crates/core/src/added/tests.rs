@@ -212,7 +212,7 @@ fn remove_keeps_shared_files_prunes_empty_dirs_and_drops_the_fiche() {
     assert!(ProjectAssets::load(d).list().is_empty());
 
     let err = ProjectAssets::load(d).remove("b").unwrap_err().to_string();
-    assert!(err.contains("n'a pas été ajouté"), "{err}");
+    assert_eq!(err, "This asset wasn't added to this project by uehub.");
 }
 
 #[test]
@@ -276,7 +276,7 @@ fn a_file_that_cannot_be_deleted_stops_and_keeps_the_fiche() {
     ProjectAssets::load(d).record(fiche("x", &files)).unwrap();
     let err = ProjectAssets::load(d).remove("x").unwrap_err().to_string();
     assert!(
-        err.contains("impossible d'effacer Content/X/dir_not_file"),
+        err.starts_with("Can't delete Content/X/dir_not_file:"),
         "{err}"
     );
     assert_eq!(ProjectAssets::load(d).list().len(), 1);

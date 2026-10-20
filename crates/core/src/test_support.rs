@@ -152,3 +152,16 @@ pub fn dead_address() -> String {
     drop(listener);
     address
 }
+
+/// Un serveur qui accepte la connexion puis ne répond jamais : de quoi dépasser un délai.
+pub async fn silent_address() -> String {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    tokio::spawn(async move {
+        let mut open = Vec::new();
+        while let Ok((sock, _)) = listener.accept().await {
+            open.push(sock);
+        }
+    });
+    base
+}

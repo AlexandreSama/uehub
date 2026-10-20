@@ -5,16 +5,17 @@ mod added;
 mod download;
 mod engines;
 mod error;
+pub mod i18n;
+pub mod journal;
 mod project;
 mod recent;
 mod session;
 #[cfg(test)]
 mod test_support;
-#[cfg(test)]
-mod tests;
 mod thumbs;
 
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 pub use added::{AddedAsset, AssetUpdate, ProjectAssets, Removal, update_for};
 pub use download::{
@@ -26,7 +27,7 @@ pub use engines::{
     InstalledEngine, ListedEngine, UnrealSession, engine_for, engines_dir, extracted_size,
     free_space, installed_engines, launch_editor, replaced_by, uninstall_engine,
 };
-pub use error::{CoreError, Result};
+pub use error::{CoreError, NetError, NetKind, Result, causes};
 pub use project::{AssetKind, UnrealProject, parse_version};
 pub use recent::RecentProjects;
 pub use thumbs::ThumbCache;
@@ -40,6 +41,7 @@ use session::SessionStore;
 /// dont il faut copier la valeur `authorizationCode`.
 pub const LOGIN_URL: &str = "https://www.epicgames.com/id/login?redirectUrl=https%3A%2F%2Fwww.epicgames.com%2Fid%2Fapi%2Fredirect%3FclientId%3D34a02cf8f4414e29b15921876da36f9a%26responseType%3Dcode";
 
+/// Bilan d'un téléchargement terminé.
 pub struct DownloadSummary {
     pub files: usize,
     pub bytes: u64,
@@ -67,7 +69,7 @@ impl EpicClient {
         Ok(Self {
             egs,
             store,
-            http: reqwest::Client::new(),
+            http: http_client()?,
         })
     }
 
@@ -91,8 +93,8 @@ impl EpicClient {
         self.store.save(&self.egs.user_details())
     }
 
-    /// Où la session est rangée (trousseau ou fichier).
-    pub fn session_storage(&self) -> &'static str {
+    /// Où la session est rangée (trousseau ou fichier), dans la langue de uehub.
+    pub fn session_storage(&self) -> String {
         self.store.backend()
     }
 
@@ -113,7 +115,8 @@ impl EpicClient {
             .egs
             .try_fab_library_items(account_id)
             .await
-            .map_err(|e| CoreError::Api(format!("{e:?}")))?;
+            .map_err(|e| CoreError::epic(t!("steps.fab_library"), e))?;
+        log::info!("Fab library loaded: {} assets", library.results.len());
         Ok(library.results)
     }
 
@@ -139,20 +142,20 @@ impl EpicClient {
                 Some(platform),
             )
             .await
-            .map_err(|e| CoreError::Api(format!("manifest d'asset : {e:?}")))?;
+            .map_err(|e| CoreError::epic(t!("steps.asset_manifest"), e))?;
         let info = infos
             .into_iter()
             .next()
-            .ok_or_else(|| CoreError::Api("aucune info de téléchargement".into()))?;
+            .ok_or_else(|| CoreError::Api(t!("errors.no_download_info")))?;
 
         // Plusieurs CDN possibles : on prend le premier qui répond.
         for base_url in &info.distribution_point_base_urls {
             match self.egs.fab_download_manifest(info.clone(), base_url).await {
                 Ok(manifest) => return Ok(manifest),
-                Err(e) => log::warn!("CDN {base_url} : {e:?}"),
+                Err(e) => log::warn!("CDN {base_url} gave no manifest: {e:?}"),
             }
         }
-        Err(CoreError::Api("aucun CDN n'a fourni le manifest".into()))
+        Err(CoreError::Api(t!("errors.no_cdn")))
     }
 
     /// Télécharge une version d'un asset dans `out_dir`.
@@ -206,9 +209,9 @@ impl EpicClient {
     ) -> Result<PreparedDownload> {
         let kind = AssetKind::of(asset);
         if kind == AssetKind::CompleteProject {
-            return Err(CoreError::Project(format!(
-                "« {} » est un projet complet : télécharge-le dans un nouveau dossier",
-                asset.title
+            return Err(CoreError::Project(t!(
+                "errors.complete_project",
+                title = asset.title
             )));
         }
 
@@ -291,7 +294,7 @@ impl Record {
         match ProjectAssets::load(&self.project_dir).record(added) {
             Ok(removal) => removal.deleted,
             Err(e) => {
-                log::warn!("fiche de « {} » non enregistrée : {e}", self.added.title);
+                log::warn!("record of \"{}\" not saved: {e}", self.added.title);
                 0
             }
         }
@@ -312,11 +315,6 @@ impl PreparedDownload {
         self.plan
             .assemble_files(&cache, &self.out_dir, on_progress)
             .await?;
-        if let Some(record) = &self.record {
-            record.save(&self.plan, &self.out_dir);
-        }
-        tokio::fs::remove_dir_all(&cache).await?;
-
         let removed = match &self.record {
             Some(record) => record.save(&self.plan, &self.out_dir),
             None => 0,
@@ -344,8 +342,24 @@ pub async fn discard_download(artifact_id: &str) -> Result<()> {
     }
 }
 
+/// Un client HTTP qui n'attend pas indéfiniment : 30 secondes pour se connecter, et une
+/// minute sans un octet reçu avant d'abandonner une réponse. Sans cela, une connexion
+/// muette bloquerait la file pour toujours ; avec, elle donne « délai dépassé ».
+pub(crate) fn http_client() -> Result<reqwest::Client> {
+    Ok(reqwest::Client::builder()
+        .connect_timeout(CONNECT_TIMEOUT)
+        .read_timeout(READ_TIMEOUT)
+        .build()?)
+}
+
+pub const CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
+pub const READ_TIMEOUT: Duration = Duration::from_secs(60);
+
 /// ~/.cache/uehub/chunks : les chunks en cours, gardés tant que l'asset n'est pas complet.
 fn cache_dir() -> Result<PathBuf> {
     let dirs = ProjectDirs::from("", "", "uehub").ok_or(CoreError::NoDataDir)?;
     Ok(dirs.cache_dir().join("chunks"))
 }
+
+#[cfg(test)]
+mod tests;

@@ -5,23 +5,24 @@ use std::time::Duration;
 
 use anyhow::{Result, bail};
 use indicatif::{ProgressBar, ProgressStyle};
+use uehub_core::i18n::bytes;
 use uehub_core::{
     Downloaded, EULA_URL, EngineInstall, EpicClient, InstallProgress, installed_engines,
-    replaced_by,
+    replaced_by, t,
 };
 
 /// `uehub engines` : les moteurs installés, puis ceux qu'Epic propose.
 pub async fn list(client: &mut EpicClient) -> Result<()> {
     let installed = installed_engines()?;
-    println!("Moteurs installés :");
+    println!("{}", t!("cli.installed_engines"));
     if installed.is_empty() {
-        println!("  aucun");
+        println!("  {}", t!("cli.none"));
     }
     for engine in &installed {
         let version = engine.version.as_deref().unwrap_or("?");
         // Un plus récent de la même branche est là : celui-ci peut partir.
         let replaced = replaced_by(version, &installed)
-            .map(|newer| format!("   (remplacé par {newer})"))
+            .map(|newer| format!("   {}", t!("cli.replaced_by", version = newer)))
             .unwrap_or_default();
         println!("  UE {version:<8} {}{replaced}", engine.dir.display());
     }
@@ -29,10 +30,10 @@ pub async fn list(client: &mut EpicClient) -> Result<()> {
     let session = client.open_unreal_session().await?;
     if !session.eula_accepted().await? {
         // Sans CLUF accepté, la page Linux ne propose aucun zip.
-        println!("\nAccepte d'abord le CLUF d'Unreal Engine : {EULA_URL}");
+        println!("\n{}", t!("cli.accept_eula", url = EULA_URL));
         return Ok(());
     }
-    println!("\nMoteurs proposés par Epic :");
+    println!("\n{}", t!("cli.offered_engines"));
     let list = session.engine_list().await?;
     for engine in &list.engines {
         let day = engine.created_at.as_deref().and_then(|d| d.get(..10));
@@ -40,14 +41,14 @@ pub async fn list(client: &mut EpicClient) -> Result<()> {
             .iter()
             .any(|i| i.version.as_deref() == Some(engine.version.as_str()))
         {
-            "   (installé)"
+            format!("   {}", t!("cli.installed_mark"))
         } else {
-            ""
+            String::new()
         };
         println!(
             "  UE {:<8} {:>8}   {}{mark}",
             engine.version,
-            gigabytes(engine.size),
+            bytes(engine.size),
             day.unwrap_or("")
         );
     }
@@ -61,7 +62,7 @@ pub async fn list(client: &mut EpicClient) -> Result<()> {
         })
         .collect();
     if !updates.is_empty() {
-        println!("\nMises à jour :");
+        println!("\n{}", t!("cli.updates"));
         for (version, update) in updates {
             println!(
                 "  UE {version} → {}   uehub engines install {}",
@@ -69,7 +70,7 @@ pub async fn list(client: &mut EpicClient) -> Result<()> {
             );
         }
     }
-    println!("\nPour en installer un : uehub engines install 5.8.3");
+    println!("\n{}", t!("cli.install_hint"));
     Ok(())
 }
 
@@ -77,31 +78,35 @@ pub async fn list(client: &mut EpicClient) -> Result<()> {
 pub async fn install(client: &mut EpicClient, version: &str, dir: Option<PathBuf>) -> Result<()> {
     let session = client.open_unreal_session().await?;
     if !session.eula_accepted().await? {
-        bail!("accepte d'abord le CLUF d'Unreal Engine : {EULA_URL}");
+        bail!(t!("cli.accept_eula", url = EULA_URL));
     }
     let mut engine = session.engine_download(version).await?;
     let install = EngineInstall::new(&engine, dir)?;
     if install.is_installed() {
         // Il manque peut-être l'enregistrement (s'il avait échoué) : on le refait.
         let id = install.register()?;
+        let dir = install.dir.display();
         println!(
-            "UE {version} est déjà installé dans {} (identifiant {id})",
-            install.dir.display()
+            "{}",
+            t!(
+                "cli.already_installed",
+                version = version,
+                dir = dir,
+                id = id
+            )
         );
         return Ok(());
     }
     install.check_space()?;
     println!(
         "UE {version} ({}) → {}",
-        gigabytes(engine.size),
+        bytes(engine.size),
         install.dir.display()
     );
 
     // 1. Le zip. L'adresse ne vaut qu'une heure : quand elle expire, on en redemande
     //    une à la page Linux et on reprend là où le fichier s'est arrêté.
-    let bar = new_bar(
-        "{msg:11} [{bar:40}] {decimal_bytes}/{decimal_total_bytes} ({decimal_bytes_per_sec}, reste {eta})",
-    )?;
+    let bar = new_bar(&t!("cli.zip_bar"))?;
     bar.set_message("zip");
     let show = |p: InstallProgress| show_progress(&bar, p);
     let mut stuck = 0;
@@ -118,43 +123,39 @@ pub async fn install(client: &mut EpicClient, version: &str, dir: Option<PathBuf
             stuck + 1
         };
         if stuck >= 3 {
-            bail!("le téléchargement n'avance plus : relance la commande pour reprendre");
+            bail!(t!("cli.stuck"));
         }
         if outcome == Downloaded::Expired {
-            bar.println("adresse expirée, j'en demande une nouvelle");
+            bar.println(t!("cli.expired"));
             engine = client
                 .open_unreal_session()
                 .await?
                 .engine_download(version)
                 .await?;
         } else {
-            bar.println("connexion coupée, je reprends");
+            bar.println(t!("cli.resuming"));
             tokio::time::sleep(Duration::from_secs(2)).await;
         }
     }
     bar.finish_and_clear();
 
     // 2. L'extraction, puis l'enregistrement.
-    let bar = new_bar("{msg:11} [{bar:40}] {pos}/{len} fichiers ({eta})")?;
-    bar.set_message("extraction");
+    let bar = new_bar(&t!("cli.extract_bar"))?;
+    bar.set_message(t!("cli.extracting"));
     let files = install
         .extract(&|p: InstallProgress| show_progress(&bar, p))
         .await?;
     bar.finish_and_clear();
     let id = install.register()?;
 
+    let dir = install.dir.display();
     println!(
-        "Installé : UE {version} ({files} fichiers) dans {}",
-        install.dir.display()
+        "{}",
+        t!("cli.installed", n = files, version = version, dir = dir)
     );
-    println!("Enregistré dans Install.ini sous l'identifiant {id}");
-    println!(
-        "Pour le lancer : {}",
-        install
-            .dir
-            .join("Engine/Binaries/Linux/UnrealEditor")
-            .display()
-    );
+    println!("{}", t!("cli.registered", id = id));
+    let editor = install.dir.join("Engine/Binaries/Linux/UnrealEditor");
+    println!("{}", t!("cli.to_launch", path = editor.display()));
     Ok(())
 }
 
@@ -171,9 +172,4 @@ fn show_progress(bar: &ProgressBar, progress: InstallProgress) {
     };
     bar.set_length(total);
     bar.set_position(done);
-}
-
-/// 39 818 576 005 → "39,8 Go"
-fn gigabytes(bytes: u64) -> String {
-    format!("{:.1} Go", bytes as f64 / 1e9).replace('.', ",")
 }

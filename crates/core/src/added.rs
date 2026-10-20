@@ -1,8 +1,6 @@
 //! Ce que uehub a ajouté à un projet, et en quelle version : une fiche par asset dans
 //! Saved/uehub/assets.json, à l'intérieur du projet. En la comparant à la bibliothèque
 //! Fab, on sait si une version plus récente est sortie.
-#[cfg(test)]
-mod tests;
 
 use std::collections::HashSet;
 use std::io::ErrorKind;
@@ -13,7 +11,7 @@ use egs_api::api::types::fab_library::{FabAsset, ProjectVersion};
 use serde::{Deserialize, Serialize};
 
 use crate::download::{build_of, newest_engine, pick_for_project};
-use crate::{CoreError, Result, parse_version};
+use crate::{CoreError, Result, parse_version, t};
 
 /// Le fichier, relatif au dossier du projet. Saved/ est le dossier des données locales
 /// d'un projet Unreal : les modèles de .gitignore d'Unreal l'excluent déjà.
@@ -154,9 +152,9 @@ impl ProjectAssets {
     /// Retire un asset du projet : efface ses fichiers, sauf ceux qu'un autre asset a
     /// aussi installés, puis sa fiche. Les dossiers qu'il laisse vides disparaissent avec.
     pub fn remove(&mut self, asset_id: &str) -> Result<Removal> {
-        let added = self.take(asset_id).ok_or_else(|| {
-            CoreError::Project("cet asset n'a pas été ajouté à ce projet par uehub".into())
-        })?;
+        let added = self
+            .take(asset_id)
+            .ok_or_else(|| CoreError::Project(t!("errors.not_added")))?;
         let removal = self.delete(&added.files)?;
         self.save()?;
         Ok(removal)
@@ -194,8 +192,10 @@ impl ProjectAssets {
                 }
                 Err(e) if e.kind() == ErrorKind::NotFound => removal.missing += 1,
                 Err(e) => {
-                    return Err(CoreError::Project(format!(
-                        "impossible d'effacer {file} : {e}"
+                    return Err(CoreError::Project(t!(
+                        "errors.cant_delete",
+                        file = file,
+                        detail = e
                     )));
                 }
             }
@@ -242,3 +242,6 @@ impl ProjectAssets {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests;

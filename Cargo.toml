@@ -4,7 +4,7 @@ members = ["crates/*", "desktop/src-tauri"]
 
 # Métadonnées héritées par toutes les crates (`version.workspace = true`, etc.)
 [workspace.package]
-version = "0.2.0"
+version = "0.1.0"
 edition = "2024"
 rust-version = "1.90"
 license = "MIT"
@@ -13,38 +13,36 @@ license = "MIT"
 [workspace.dependencies]
 uehub-core = { path = "crates/core" }
 
-egs-api = "0.14.0"
-tokio = { version = "1.53.3", features = ["rt-multi-thread", "macros", "fs", "io-util", "time"] }
-serde_json = "1.0.154"
-thiserror = "2.0.21"
-anyhow = "1.0.104"
-directories = "6.0.0"
-clap = { version = "4.6.7", features = ["derive"] }
-log = "0.4.34"
-env_logger = "0.11.11"
-futures = "0.3.34"
-reqwest = "0.13.5"
-sha1 = "0.11.0"
-indicatif = "0.18.6"
-keyring-core = "1.0.1"
-zbus-secret-service-keyring-store = { version = "1.0.1", features = ["crypto-rust"] }
-
-tauri = "2.12.4"
-tauri-build = "2.7.3"
-tauri-plugin-opener = "2.7.2"
-tauri-plugin-dialog = "2.8.3"
-serde = { version = "1.0.229", features = ["derive"] }
-
-percent-encoding = "2.3.2"
-zip = { version = "9.0.5", default-features = false, features = ["deflate-flate2-zlib-rs", "deflate64"] }
-fs4 = "1.1.0"
-uuid = { version = "1.28.0", features = ["v4"] }
-tauri-plugin-notification = "2.7.0"
-tauri-plugin-updater = "2.14.0"
+egs-api = "0.14"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "io-util", "time"] }
+serde_json = "1"
+anyhow = "1"
+directories = "6"
+clap = { version = "4", features = ["derive"] }
+log = "0.4"
+env_logger = "0.11"
+futures = "0.3"
+reqwest = "0.13"
+sha1 = "0.11"
+indicatif = "0.18"
+keyring-core = "1"
+zbus-secret-service-keyring-store = { version = "1", features = ["crypto-rust"] }
+tauri = "2"
+tauri-build = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-notification = "2.7"
+tauri-plugin-updater = "2.14"
+serde = { version = "1", features = ["derive"] }
+percent-encoding = "2"
+zip = { version = "9", default-features = false, features = ["deflate-flate2-zlib-rs", "deflate64"] }
+fs4 = "1"
+uuid = { version = "1", features = ["v4"] }
+regex = "1"
 
 # Pour les tests seulement
-tempfile = "3.27.0"
-flate2 = "1.1.10"
+tempfile = "3"
+flate2 = "1"
 
 [profile.release]
 lto = "thin"

@@ -31,11 +31,11 @@ fn add() -> Request {
 #[test]
 fn sizes_read_like_the_interface() {
     let text = |b| summary(b, None).text();
-    assert_eq!(text(1_234_000_000), "61 fichiers, 1,2 Go");
-    assert_eq!(text(1_000_000_000), "61 fichiers, 1 Go");
-    assert_eq!(text(1_572_864), "61 fichiers, 1,6 Mo");
-    assert_eq!(text(999), "61 fichiers, 1 Ko");
-    assert_eq!(text(0), "61 fichiers, 0 Ko");
+    assert_eq!(text(1_234_000_000), "61 files, 1.2 GB");
+    assert_eq!(text(1_000_000_000), "61 files, 1 GB");
+    assert_eq!(text(1_572_864), "61 files, 1.6 MB");
+    assert_eq!(text(999), "61 files, 1 kB");
+    assert_eq!(text(0), "61 files, 0 kB");
     assert_eq!(summary(5, Some("n")).note(), Some("n"));
     assert_eq!(summary(5, None).note(), None);
 }
@@ -52,8 +52,8 @@ fn messages_for_finished_jobs_only() {
     assert_eq!(
         message(&done),
         Some((
-            "Ajout terminé : Megascans: Grass".into(),
-            "61 fichiers, 1,2 Go dans ForestShooter".into()
+            "Added: Megascans: Grass".into(),
+            "61 files, 1.2 GB in ForestShooter".into()
         ))
     );
 
@@ -61,12 +61,12 @@ fn messages_for_finished_jobs_only() {
         add(),
         "ForestShooter",
         Status::Done {
-            summary: summary(1_234_000_000, Some("Pas de version pour UE 5.5.")),
+            summary: summary(1_234_000_000, Some("No version for UE 5.5.")),
         },
     );
     assert_eq!(
         message(&noted).unwrap().1,
-        "61 fichiers, 1,2 Go dans ForestShooter\nPas de version pour UE 5.5."
+        "61 files, 1.2 GB in ForestShooter\nNo version for UE 5.5."
     );
 
     let dl = Request::Download {
@@ -83,8 +83,8 @@ fn messages_for_finished_jobs_only() {
     assert_eq!(
         message(&downloaded),
         Some((
-            "Téléchargement terminé : Megascans: Grass".into(),
-            "61 fichiers, 2 Mo dans /home/a/Assets/Megascans_Grass".into()
+            "Downloaded: Megascans: Grass".into(),
+            "61 files, 2 MB in /home/a/Assets/Megascans_Grass".into()
         ))
     );
 
@@ -103,8 +103,8 @@ fn messages_for_finished_jobs_only() {
     assert_eq!(
         message(&installed),
         Some((
-            "Installation terminée : Unreal Engine 5.8.3".into(),
-            "61 fichiers, 39,8 Go dans /home/a/UnrealEngine/5.8.3".into()
+            "Installed: Unreal Engine 5.8.3".into(),
+            "61 files, 39.8 GB in /home/a/UnrealEngine/5.8.3".into()
         ))
     );
 
@@ -112,12 +112,12 @@ fn messages_for_finished_jobs_only() {
         add(),
         "ForestShooter",
         Status::Failed {
-            error: "réseau coupé".into(),
+            error: "connection cut".into(),
         },
     );
     assert_eq!(
         message(&failed),
-        Some(("Échec : Megascans: Grass".into(), "réseau coupé".into()))
+        Some(("Failed: Megascans: Grass".into(), "connection cut".into()))
     );
 
     for status in [Status::Waiting, Status::Running, Status::Paused] {

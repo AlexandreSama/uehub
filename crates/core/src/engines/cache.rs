@@ -5,9 +5,6 @@
 //! Les adresses de téléchargement n'y sont pas. Signées et valables une heure, elles ne
 //! servent qu'à l'installation, qui en demande toujours une fraîche à Epic.
 
-#[cfg(test)]
-mod tests;
-
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -70,7 +67,7 @@ impl EngineList {
     /// attendra Epic, comme avant.
     pub fn save(&self) {
         if let Err(e) = file().and_then(|file| self.save_to(&file)) {
-            log::warn!("liste des moteurs non gardée : {e}");
+            log::warn!("engine list not cached: {e}");
         }
     }
 
@@ -105,3 +102,6 @@ fn file() -> Result<PathBuf> {
     let dirs = ProjectDirs::from("", "", "uehub").ok_or(CoreError::NoDataDir)?;
     Ok(dirs.cache_dir().join("engines.json"))
 }
+
+#[cfg(test)]
+mod tests;

@@ -13,15 +13,12 @@ pub async fn respond(cache: &ThumbCache, request: Request<Vec<u8>>) -> Response<
     match cache.get(&url).await {
         Ok(bytes) => Response::builder()
             .header(header::CONTENT_TYPE, image_type(&bytes))
-            // L'interface lit la vignette avec fetch depuis une autre origine.
-            .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
             .body(bytes)
             .unwrap(),
         Err(e) => {
-            eprintln!("vignette {url} : {e}");
+            log::debug!("thumbnail {url}: {}", e.detail());
             Response::builder()
                 .status(StatusCode::NOT_FOUND)
-                .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
                 .body(Vec::new())
                 .unwrap()
         }

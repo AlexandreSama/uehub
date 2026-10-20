@@ -2,9 +2,6 @@
 //! Premier choix : le trousseau système (Secret Service : GNOME Keyring, KWallet…).
 //! Repli : un fichier JSON lisible par toi seul (droits 600) si aucun trousseau ne répond.
 
-#[cfg(test)]
-mod tests;
-
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::os::unix::fs::OpenOptionsExt;
@@ -14,7 +11,7 @@ use directories::ProjectDirs;
 use egs_api::api::types::account::UserData;
 use keyring_core::Entry;
 
-use crate::{CoreError, Result};
+use crate::{CoreError, Result, t};
 
 const SERVICE: &str = "uehub";
 const ACCOUNT: &str = "epic-session";
@@ -37,11 +34,20 @@ impl SessionStore {
     }
 
     /// Où la session est rangée, pour l'afficher à l'utilisateur.
-    pub(crate) fn backend(&self) -> &'static str {
+    pub(crate) fn backend(&self) -> String {
         if self.keyring.is_some() {
-            "trousseau système"
+            t!("storage.keyring")
         } else {
-            "fichier (aucun trousseau disponible)"
+            t!("storage.file")
+        }
+    }
+
+    /// La même chose pour le journal, qui reste en anglais.
+    fn backend_name(&self) -> &'static str {
+        if self.keyring.is_some() {
+            "keyring"
+        } else {
+            "file"
         }
     }
 
@@ -68,7 +74,7 @@ impl SessionStore {
             Some(entry) => entry.set_password(&json)?,
             None => write_private_file(&self.file, &json)?,
         }
-        log::debug!("session enregistrée ({})", self.backend());
+        log::info!("session saved ({})", self.backend_name());
         Ok(())
     }
 
@@ -95,7 +101,7 @@ impl SessionStore {
         }
         entry.set_password(&fs::read_to_string(&self.file)?)?;
         fs::remove_file(&self.file)?;
-        log::info!("session déplacée du fichier vers le trousseau");
+        log::info!("session moved from the file to the keyring");
         Ok(())
     }
 }
@@ -108,7 +114,7 @@ fn open_keyring() -> Option<Entry> {
             Entry::new(SERVICE, ACCOUNT).ok()
         }
         Err(e) => {
-            log::warn!("trousseau indisponible ({e}), repli sur fichier");
+            log::warn!("no keyring ({e}), the session goes to a file");
             None
         }
     }
@@ -127,3 +133,6 @@ fn write_private_file(path: &PathBuf, content: &str) -> Result<()> {
     file.write_all(content.as_bytes())?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;

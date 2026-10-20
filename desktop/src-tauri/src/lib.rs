@@ -1,6 +1,7 @@
 //! L'application Tauri : la fenêtre, les plugins et les commandes appelées par React.
 
 mod commands;
+mod journal;
 mod notify;
 mod queue;
 mod settings;
@@ -8,6 +9,7 @@ mod thumbs;
 mod update;
 
 use tauri::Manager;
+use uehub_core::i18n::{self, Lang};
 use uehub_core::{EpicClient, ThumbCache};
 
 use commands::AppState;
@@ -16,13 +18,17 @@ use update::PendingUpdate;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // La langue d'abord : tout ce qui suit parle déjà celle du système. Puis le journal,
+    // pour qu'il voie tout le reste, même un échec au démarrage.
+    i18n::init(Lang::from_system());
+    uehub_core::journal::start();
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
+            journal::started(app.handle());
             // Recharge la session enregistrée (trousseau ou fichier) dès le démarrage.
             let client = EpicClient::new()?;
             app.manage(AppState::new(client));
@@ -30,7 +36,6 @@ pub fn run() {
             app.manage(PendingUpdate::default());
             // La file enregistrée revient en pause ; le worker attend qu'on la relance.
             app.manage(Queue::load(app.handle().clone())?);
-            tauri::async_runtime::spawn(queue::worker(app.handle().clone()));
             tauri::async_runtime::spawn(queue::worker(app.handle().clone()));
             notify::setup(app.handle())?;
             Ok(())
@@ -65,9 +70,9 @@ pub fn run() {
             commands::local_engines,
             commands::cached_engines,
             commands::available_engines,
-            commands::available_engines,
             commands::engines_folder,
             commands::set_engines_folder,
+            commands::free_space,
             commands::open_eula_page,
             commands::launch_engine,
             commands::open_project,
@@ -75,8 +80,11 @@ pub fn run() {
             update::app_info,
             update::check_update,
             update::install_update,
-            commands::free_space,
+            journal::language,
+            journal::log_file,
+            journal::show_log,
+            journal::log_webview,
         ])
         .run(tauri::generate_context!())
-        .expect("erreur au lancement de l'application");
+        .expect("uehub could not start");
 }

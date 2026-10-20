@@ -1,10 +1,9 @@
 //! Les notifications de bureau : une à la fin de chaque job, quand tu ne regardes pas l'app.
 
-#[cfg(test)]
-mod tests;
-
 use tauri::{AppHandle, Manager};
 use tauri_plugin_notification::NotificationExt;
+
+use uehub_core::t;
 
 use crate::queue::{Job, Request, Status};
 
@@ -40,7 +39,7 @@ pub fn job_finished(app: &AppHandle, job: &Job) {
         return;
     };
     if let Err(e) = app.notification().builder().title(title).body(body).show() {
-        eprintln!("notification non affichée : {e}");
+        log::warn!("notification not shown: {e}");
     }
 }
 
@@ -49,17 +48,20 @@ fn message(job: &Job) -> Option<(String, String)> {
     match &job.status {
         Status::Done { summary } => {
             let title = match job.request {
-                Request::Download { .. } => format!("Téléchargement terminé : {}", job.title),
-                Request::AddToProject { .. } => format!("Ajout terminé : {}", job.title),
-                Request::InstallEngine { .. } => format!("Installation terminée : {}", job.title),
+                Request::Download { .. } => t!("notify.downloaded", title = job.title),
+                Request::AddToProject { .. } => t!("notify.added", title = job.title),
+                Request::InstallEngine { .. } => t!("notify.installed", title = job.title),
             };
-            let mut body = format!("{} dans {}", summary.text(), job.target);
+            let mut body = t!("notify.body", summary = summary.text(), target = job.target);
             if let Some(note) = summary.note() {
                 body = format!("{body}\n{note}");
             }
             Some((title, body))
         }
-        Status::Failed { error } => Some((format!("Échec : {}", job.title), error.clone())),
+        Status::Failed { error } => Some((t!("notify.failed", title = job.title), error.clone())),
         Status::Waiting | Status::Running | Status::Paused => None,
     }
 }
+
+#[cfg(test)]
+mod tests;
