@@ -46,13 +46,20 @@ tauri-plugin-updater = "2.14.0"
 serde = { version = "1.0.229", features = ["derive"] }
 percent-encoding = "2.3.2"
 zip = { version = "9.0.5", default-features = false, features = ["deflate-flate2-zlib-rs", "deflate64"] }
+# L'extraction pendant le téléchargement décode elle-même chaque entrée du zip : les mêmes
+# décodeurs que le crate zip, et le même zlib-rs, en Rust.
+flate2 = { version = "1.1.10", default-features = false, features = ["zlib-rs"] }
+deflate64 = "0.1.12"
+crc32fast = "1.5.2"
+bytes = "1.12.1"
+# syncfs, pour les points d'enregistrement
+rustix = { version = "1.1.5", features = ["fs"] }
 fs4 = "1.1.0"
 uuid = { version = "1.28.0", features = ["v4"] }
 regex = "1.13.1"
 
 # Pour les tests seulement
 tempfile = "3.27.0"
-flate2 = "1.1.10"
 
 [profile.release]
 lto = "thin"

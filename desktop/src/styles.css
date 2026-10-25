@@ -1219,12 +1219,8 @@ table {
   background: var(--sunken);
 }
 
-.disk-zip {
-  background: var(--accent);
-}
-
 .disk-engine {
-  background: var(--ruler);
+  background: var(--accent);
 }
 
 .disk-free {

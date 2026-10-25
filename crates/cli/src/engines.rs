@@ -104,10 +104,11 @@ pub async fn install(client: &mut EpicClient, version: &str, dir: Option<PathBuf
         install.dir.display()
     );
 
-    // 1. Le zip. L'adresse ne vaut qu'une heure : quand elle expire, on en redemande
-    //    une à la page Linux et on reprend là où le fichier s'est arrêté.
+    // 1. Le moteur, extrait pendant qu'il se télécharge. L'adresse ne vaut qu'une heure :
+    //    quand elle expire, on en redemande une à la page Linux et on reprend au fichier
+    //    en cours.
     let bar = new_bar(&t!("cli.zip_bar"))?;
-    bar.set_message("zip");
+    bar.set_message(t!("cli.installing"));
     let show = |p: InstallProgress| show_progress(&bar, p);
     let mut stuck = 0;
     loop {
@@ -139,13 +140,19 @@ pub async fn install(client: &mut EpicClient, version: &str, dir: Option<PathBuf
     }
     bar.finish_and_clear();
 
-    // 2. L'extraction, puis l'enregistrement.
-    let bar = new_bar(&t!("cli.extract_bar"))?;
-    bar.set_message(t!("cli.extracting"));
-    let files = install
-        .extract(&|p: InstallProgress| show_progress(&bar, p))
-        .await?;
-    bar.finish_and_clear();
+    // 2. La fin, puis l'enregistrement. Avec le zip sur le disque (un serveur qui ignore
+    //    Range, ou une installation commencée avec uehub 0.2), il faut d'abord l'extraire.
+    let files = if install.zip_on_disk() {
+        let bar = new_bar(&t!("cli.extract_bar"))?;
+        bar.set_message(t!("cli.extracting"));
+        let files = install
+            .extract(&|p: InstallProgress| show_progress(&bar, p))
+            .await?;
+        bar.finish_and_clear();
+        files
+    } else {
+        install.extract(&|_| {}).await?
+    };
     let id = install.register()?;
 
     let dir = install.dir.display();

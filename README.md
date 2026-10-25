@@ -30,8 +30,9 @@
   tells you when the seller publishes a new build, or a version closer to your engine.
   Removing an asset deletes the files it added, and only those.
 - **Unreal Engine, installed for you.** The prebuilt Linux releases Epic publishes: pick
-  one, check the disk space it needs, and uehub downloads, extracts and registers it so
-  your projects open with it. It tells you when a newer patch of your branch is out.
+  one, check the disk space it needs, and uehub extracts it while it downloads, then
+  registers it so your projects open with it. A cut connection resumes at the file it
+  stopped in. It tells you when a newer patch of your branch is out.
 - **Made for a desktop that stays open.** A notification when a download ends while
   you're elsewhere, a check for uehub updates every few hours, and a log that's safe
   to attach to a bug report.
@@ -71,8 +72,9 @@ one whose signature doesn't match.
   pull it in).
 - A keyring that speaks the Secret Service API (GNOME Keyring, KWallet) to keep your
   session. Without one, uehub keeps it in a file only you can read.
-- Disk space for engines: Unreal Engine 5.8 takes about 70 GB once extracted, plus its
-  40 GB zip while it installs. uehub checks before it starts.
+- Disk space for engines: Unreal Engine 5.8 takes about 70 GB once extracted. Its 40 GB
+  zip never lands on the disk: uehub extracts each file as it arrives. uehub checks
+  before it starts.
 
 ## Getting started
 

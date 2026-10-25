@@ -1,5 +1,5 @@
 use super::*;
-use std::io::Write;
+use std::io::{Seek, Write};
 use std::sync::Mutex;
 
 use tokio::io::AsyncWriteExt;
@@ -11,12 +11,50 @@ use crate::test_support::{dead_address, read_request};
 /// 1 Mo, deux liens symboliques, et des entrées à ignorer. `root` range tout dans un
 /// dossier de tête, comme certains zips d'Epic.
 fn engine_zip(root: Option<&str>) -> Vec<u8> {
+    engine_zip_with(root, 0, false)
+}
+
+/// Le même, plus `noise` octets incompressibles dans Engine/Content/noise.bin (au-delà de
+/// 64 Ko, le zip dépasse la première requête de l'index). `streamed` : écrit comme par un
+/// outil qui ne peut pas revenir en arrière, avec les tailles après chaque fichier
+/// (descripteurs de données), et un fichier en ZIP64.
+fn engine_zip_with(root: Option<&str>, noise: usize, streamed: bool) -> Vec<u8> {
+    let mut out = std::io::Cursor::new(Vec::new());
+    if streamed {
+        let mut zip = zip::ZipWriter::new_stream(&mut out);
+        fill_zip(&mut zip, root, noise, true);
+        zip.finish().unwrap();
+    } else {
+        let mut zip = zip::ZipWriter::new(&mut out);
+        fill_zip(&mut zip, root, noise, false);
+        zip.finish().unwrap();
+    }
+    out.into_inner()
+}
+
+/// Des octets qui ne se compressent pas, toujours les mêmes.
+fn noise_bytes(len: usize) -> Vec<u8> {
+    let mut x: u32 = 0x9E37_79B9;
+    (0..len)
+        .map(|_| {
+            x ^= x << 13;
+            x ^= x >> 17;
+            x ^= x << 5;
+            x as u8
+        })
+        .collect()
+}
+
+fn fill_zip<W: Write + Seek>(
+    zip: &mut zip::ZipWriter<W>,
+    root: Option<&str>,
+    noise: usize,
+    large: bool,
+) {
     let p = |name: &str| match root {
         Some(r) => format!("{r}/{name}"),
         None => name.to_string(),
     };
-    let mut out = std::io::Cursor::new(Vec::new());
-    let mut zip = zip::ZipWriter::new(&mut out);
     let stored = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
     let deflated =
         SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
@@ -56,20 +94,32 @@ fn engine_zip(root: Option<&str>) -> Vec<u8> {
     .unwrap();
     let big: Vec<u8> = (0..1_000_000u32).map(|i| (i % 251) as u8).collect();
     zip.write_all(&big).unwrap();
+    if noise > 0 {
+        zip.start_file(
+            p("Engine/Content/noise.bin"),
+            deflated.unix_permissions(0o644).large_file(large),
+        )
+        .unwrap();
+        zip.write_all(&noise_bytes(noise)).unwrap();
+    }
     zip.start_file("../evil.txt", stored).unwrap();
     zip.write_all(b"no").unwrap();
-    zip.finish().unwrap();
-    out.into_inner()
 }
 
-/// Comment le faux CDN se comporte avec la première connexion.
+/// Comment le faux CDN se comporte.
 #[derive(Clone, Copy)]
 enum Mode {
-    /// Coupe après tant d'octets
+    /// Répond normalement
+    Plain,
+    /// Coupe la première connexion après tant d'octets
     CutFirstAt(usize),
+    /// Coupe, une fois, la première réponse qui passe par cet octet du fichier
+    CutOnceAt(usize),
+    /// Abîme, une fois, cet octet du fichier
+    CorruptOnce(usize),
     /// Ignore l'en-tête Range et renvoie tout le fichier
     IgnoreRange,
-    /// Envoie tant d'octets, puis se tait sans fermer
+    /// Envoie tant d'octets avec la première connexion, puis se tait sans fermer
     StallAfter(usize),
 }
 
@@ -82,6 +132,7 @@ async fn cdn(data: Vec<u8>, mode: Mode) -> (String, Arc<Mutex<Vec<String>>>) {
     let log = seen.clone();
     tokio::spawn(async move {
         let mut count = 0;
+        let mut applied = false;
         while let Ok((mut sock, _)) = listener.accept().await {
             count += 1;
             let Some(request) = read_request(&mut sock).await else {
@@ -120,6 +171,16 @@ async fn cdn(data: Vec<u8>, mode: Mode) -> (String, Arc<Mutex<Vec<String>>>) {
             match mode {
                 Mode::CutFirstAt(cut) if count == 1 => {
                     let _ = sock.write_all(&body[..cut]).await;
+                }
+                Mode::CutOnceAt(at) if !applied && start < at => {
+                    applied = true;
+                    let _ = sock.write_all(&body[..at - start]).await;
+                }
+                Mode::CorruptOnce(at) if !applied && start <= at => {
+                    applied = true;
+                    let mut damaged = body.to_vec();
+                    damaged[at - start] ^= 0xFF;
+                    let _ = sock.write_all(&damaged).await;
                 }
                 Mode::StallAfter(n) if count == 1 => {
                     let _ = sock.write_all(&body[..n]).await;
@@ -201,6 +262,10 @@ async fn download_resumes_after_a_cut_and_after_expiry() {
     let root = root.path();
     let install = EngineInstall::new(&engine(&base, "a", size), Some(root.join("5.8.3"))).unwrap();
     assert_eq!(install.zip, root.join("Linux_Unreal_Engine_5.8.3.zip"));
+    // Une installation commencée avec uehub 0.2 : le zip est sur le disque, l'ancien chemin
+    // continue.
+    fs::write(&install.zip, b"").unwrap();
+    assert!(install.zip_on_disk());
     let (events, on) = recorder();
 
     let first = install.download(&engine(&base, "a", size), &on).await;
@@ -448,6 +513,7 @@ async fn a_silent_connection_counts_as_interrupted() {
         .read_timeout(std::time::Duration::from_millis(300))
         .build()
         .unwrap();
+    fs::write(&install.zip, b"").unwrap();
     let (_, on) = recorder();
     let t0 = std::time::Instant::now();
     let first = install.download(&engine(&base, "a", size), &on).await;
@@ -602,4 +668,421 @@ fn free_space_measures_the_first_existing_parent() {
 fn extracted_size_uses_the_ratio() {
     assert_eq!(extracted_size(100), 180);
     assert_eq!(extracted_size(39_800_000_000), 71_640_000_000);
+}
+
+// ---------------------------------------------------------------------------
+// L'extraction pendant le téléchargement
+// ---------------------------------------------------------------------------
+
+/// Où commence une entrée du zip (son en-tête local), et où commencent ses données.
+fn offsets(data: &[u8], name: &str) -> (usize, usize) {
+    let mut archive = ZipArchive::new(std::io::Cursor::new(data)).unwrap();
+    let entry = archive.by_name(name).unwrap();
+    (
+        entry.header_start() as usize,
+        entry.data_start().unwrap() as usize,
+    )
+}
+
+/// Le début de l'index du zip.
+fn index_of(data: &[u8]) -> u64 {
+    ZipArchive::new(std::io::Cursor::new(data))
+        .unwrap()
+        .central_directory_start()
+}
+
+/// Une installation neuve, vers un dossier temporaire.
+fn fresh(base: &str, size: u64) -> (EngineInstall, tempfile::TempDir) {
+    let root = tempfile::tempdir().unwrap();
+    let install =
+        EngineInstall::new(&engine(base, "a", size), Some(root.path().join("5.8.3"))).unwrap();
+    (install, root)
+}
+
+/// Le moteur extrait est complet et sûr : contenu, droits, liens, entrées dangereuses.
+fn check_engine(dir: &Path, root: &Path, noise: usize) {
+    let editor = dir.join(EDITOR);
+    assert_eq!(
+        fs::read_to_string(&editor).unwrap(),
+        "#!/bin/sh\necho editor\n"
+    );
+    assert_eq!(mode_of(&editor), 0o755);
+    assert_eq!(mode_of(&dir.join("Engine/Build/Build.version")), 0o644);
+    assert_eq!(
+        fs::read_link(dir.join("Engine/Binaries/Linux/libfoo.so")).unwrap(),
+        Path::new("libfoo.so.1")
+    );
+    assert!(fs::symlink_metadata(dir.join("Engine/Binaries/Linux/evil")).is_err());
+    assert!(fs::symlink_metadata(dir.join("Engine/escape")).is_err());
+    assert!(!root.join("evil.txt").exists() && !dir.join("evil.txt").exists());
+    let big: Vec<u8> = (0..1_000_000u32).map(|i| (i % 251) as u8).collect();
+    assert_eq!(fs::read(dir.join("Engine/Content/big.bin")).unwrap(), big);
+    if noise > 0 {
+        assert_eq!(
+            fs::read(dir.join("Engine/Content/noise.bin")).unwrap(),
+            noise_bytes(noise)
+        );
+    }
+}
+
+#[tokio::test]
+async fn streams_the_engine_without_a_zip_on_disk() {
+    for root_folder in [None, Some("Linux_Unreal_Engine_5.8.3")] {
+        let data = engine_zip_with(root_folder, 200_000, false);
+        let size = data.len() as u64;
+        let (base, seen) = cdn(data.clone(), Mode::Plain).await;
+        let (install, tmp) = fresh(&base, size);
+        let (events, on) = recorder();
+
+        let done = install.download(&engine(&base, "a", size), &on).await;
+        assert_eq!(done.unwrap(), Downloaded::Complete);
+        // Le zip n'a jamais été écrit : seulement le moteur, son journal et son index.
+        assert!(!install.zip_on_disk());
+        let names: Vec<String> = fs::read_dir(tmp.path())
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(names, ["5.8.3"]);
+        assert_eq!(install.downloaded(), index_of(&data));
+        // L'index tient dans la première requête (les 64 derniers Ko), puis le zip arrive
+        // d'un bloc depuis le début.
+        assert_eq!(
+            *seen.lock().unwrap(),
+            [format!("Some({})", size - 65_557), "Some(0)".into()]
+        );
+        assert_eq!(
+            *events.lock().unwrap().last().unwrap(),
+            InstallProgress::Download {
+                done: size,
+                total: size
+            }
+        );
+        assert!(
+            !install.is_installed(),
+            "pas fini tant que le journal est là"
+        );
+
+        // La fin : l'éditeur, la marque, et plus de journal ni d'index.
+        let files = install.extract(&on).await.unwrap();
+        assert_eq!(files, 10);
+        check_engine(&install.dir, tmp.path(), 200_000);
+        assert_eq!(
+            fs::read_to_string(install.dir.join(MARKER)).unwrap(),
+            "5.8.3"
+        );
+        assert!(!install.dir.join(stream::JOURNAL).exists());
+        assert!(!install.dir.join(stream::INDEX).exists());
+        assert!(install.is_installed());
+    }
+}
+
+#[tokio::test]
+async fn a_long_index_takes_a_second_request() {
+    // 2 000 petits fichiers : l'index dépasse les 64 Ko de la première requête.
+    let mut out = std::io::Cursor::new(Vec::new());
+    let mut zip = zip::ZipWriter::new(&mut out);
+    let options = SimpleFileOptions::default().unix_permissions(0o755);
+    zip.start_file(EDITOR, options).unwrap();
+    zip.write_all(b"editor").unwrap();
+    for i in 0..2000 {
+        zip.start_file(format!("Engine/Content/Pack/Asset{i:04}.uasset"), options)
+            .unwrap();
+        zip.write_all(format!("asset {i}").as_bytes()).unwrap();
+    }
+    zip.finish().unwrap();
+    let data = out.into_inner();
+    let size = data.len() as u64;
+    let start = index_of(&data);
+    assert!(size - start > 65_557);
+    let (base, seen) = cdn(data, Mode::Plain).await;
+    let (install, _tmp) = fresh(&base, size);
+    let (_, on) = recorder();
+    let done = install.download(&engine(&base, "a", size), &on).await;
+    assert_eq!(done.unwrap(), Downloaded::Complete);
+    assert_eq!(
+        *seen.lock().unwrap(),
+        [
+            format!("Some({})", size - 65_557),
+            format!("Some({start})"),
+            "Some(0)".into()
+        ]
+    );
+    assert_eq!(install.extract(&on).await.unwrap(), 2001);
+    let asset = install.dir.join("Engine/Content/Pack/Asset1999.uasset");
+    assert_eq!(fs::read_to_string(asset).unwrap(), "asset 1999");
+}
+
+#[tokio::test]
+async fn a_cut_resumes_at_the_entry_it_stopped_in() {
+    let data = engine_zip_with(None, 200_000, false);
+    let size = data.len() as u64;
+    let (noise_start, noise_data) = offsets(&data, "Engine/Content/noise.bin");
+    // La connexion se coupe au milieu de noise.bin.
+    let (base, seen) = cdn(data.clone(), Mode::CutOnceAt(noise_data + 50_000)).await;
+    let (install, tmp) = fresh(&base, size);
+    let (_, on) = recorder();
+
+    let first = install.download(&engine(&base, "a", size), &on).await;
+    assert_eq!(first.unwrap(), Downloaded::Interrupted);
+    // Tout ce qui précède est écrit et enregistré ; noise.bin, à moitié reçu, est effacé.
+    assert_eq!(install.downloaded(), noise_start as u64);
+    assert!(install.dir.join("Engine/Content/big.bin").is_file());
+    assert!(!install.dir.join("Engine/Content/noise.bin").exists());
+    let journal = stream::read_journal(&install.dir).unwrap();
+    assert_eq!(journal.offset, noise_start as u64);
+    assert!(journal.written >= 1_000_000);
+
+    // La reprise redemande le zip à partir de noise.bin, et l'index n'est pas redemandé.
+    let second = install.download(&engine(&base, "a", size), &on).await;
+    assert_eq!(second.unwrap(), Downloaded::Complete);
+    let seen = seen.lock().unwrap().clone();
+    assert_eq!(seen.last().unwrap(), &format!("Some({noise_start})"));
+    assert_eq!(seen.len(), 3);
+    install.extract(&on).await.unwrap();
+    check_engine(&install.dir, tmp.path(), 200_000);
+}
+
+#[tokio::test]
+async fn a_silent_stream_counts_as_interrupted() {
+    let data = engine_zip_with(None, 200_000, false);
+    let size = data.len() as u64;
+    let (noise_start, noise_data) = offsets(&data, "Engine/Content/noise.bin");
+    // La première connexion (l'index) se tait : interrompu, rien d'écrit.
+    let (base, _) = cdn(data.clone(), Mode::StallAfter(100)).await;
+    let (mut install, _tmp) = fresh(&base, size);
+    install.http = reqwest::Client::builder()
+        .read_timeout(std::time::Duration::from_millis(300))
+        .build()
+        .unwrap();
+    let (_, on) = recorder();
+    let first = install.download(&engine(&base, "a", size), &on).await;
+    assert_eq!(first.unwrap(), Downloaded::Interrupted);
+    assert!(!install.dir.join(stream::JOURNAL).exists());
+    assert_eq!(install.downloaded(), 0);
+    // Puis tout passe.
+    let second = install.download(&engine(&base, "a", size), &on).await;
+    assert_eq!(second.unwrap(), Downloaded::Complete);
+    assert!(noise_data > noise_start);
+}
+
+#[tokio::test]
+async fn expired_address_and_a_server_without_ranges() {
+    let data = engine_zip_with(None, 200_000, false);
+    let size = data.len() as u64;
+    let (base, _) = cdn(data.clone(), Mode::Plain).await;
+    let (install, _tmp) = fresh(&base, size);
+    let (_, on) = recorder();
+    // Une adresse expirée dès l'index : rien n'est écrit, on en redemande une.
+    let expired = install.download(&engine(&base, "old", size), &on).await;
+    assert_eq!(expired.unwrap(), Downloaded::Expired);
+    assert!(!install.dir.join(stream::JOURNAL).exists());
+
+    // Un serveur qui ignore Range : le zip passe par le disque, comme avant.
+    let (base, _) = cdn(data.clone(), Mode::IgnoreRange).await;
+    let (install, tmp) = fresh(&base, size);
+    let done = install.download(&engine(&base, "a", size), &on).await;
+    assert_eq!(done.unwrap(), Downloaded::Complete);
+    assert!(install.zip_on_disk());
+    assert_eq!(fs::read(&install.zip).unwrap(), data);
+    assert_eq!(install.extract(&on).await.unwrap(), 10);
+    check_engine(&install.dir, tmp.path(), 200_000);
+    assert!(!install.zip_on_disk() && install.is_installed());
+}
+
+#[tokio::test]
+async fn a_damaged_file_is_removed_and_downloaded_again() {
+    let data = engine_zip_with(None, 200_000, false);
+    let size = data.len() as u64;
+    // Un octet de l'éditeur (stocké tel quel) arrive abîmé, une fois.
+    let at = data.windows(4).position(|w| w == b"echo").unwrap();
+    let (base, seen) = cdn(data.clone(), Mode::CorruptOnce(at)).await;
+    let (install, tmp) = fresh(&base, size);
+    let (_, on) = recorder();
+    let err = install
+        .download(&engine(&base, "a", size), &on)
+        .await
+        .unwrap_err()
+        .to_string();
+    assert!(
+        err.contains("UnrealEditor") && err.contains("damaged"),
+        "{err}"
+    );
+    assert!(
+        !install.dir.join(EDITOR).exists(),
+        "un fichier abîmé ne reste pas"
+    );
+    // La reprise repart de l'éditeur.
+    let (editor_start, _) = offsets(&data, EDITOR);
+    assert_eq!(install.downloaded(), editor_start as u64);
+    let again = install.download(&engine(&base, "a", size), &on).await;
+    assert_eq!(again.unwrap(), Downloaded::Complete);
+    assert_eq!(
+        seen.lock().unwrap().last().unwrap(),
+        &format!("Some({editor_start})")
+    );
+    install.extract(&on).await.unwrap();
+    check_engine(&install.dir, tmp.path(), 200_000);
+}
+
+#[tokio::test]
+async fn data_descriptors_and_zip64_records() {
+    // Écrit sans revenir en arrière : les tailles et les CRC ne sont qu'après chaque
+    // fichier, et noise.bin a ses tailles en ZIP64. Seul l'index les donne d'avance.
+    let data = engine_zip_with(Some("Linux_Unreal_Engine_5.8.3"), 200_000, true);
+    let size = data.len() as u64;
+    let (base, _) = cdn(data, Mode::Plain).await;
+    let (install, tmp) = fresh(&base, size);
+    let (_, on) = recorder();
+    let done = install.download(&engine(&base, "a", size), &on).await;
+    assert_eq!(done.unwrap(), Downloaded::Complete);
+    install.extract(&on).await.unwrap();
+    check_engine(&install.dir, tmp.path(), 200_000);
+}
+
+#[tokio::test]
+async fn a_crash_redoes_the_entries_after_the_last_checkpoint() {
+    let data = engine_zip_with(None, 200_000, false);
+    let size = data.len() as u64;
+    let (base, seen) = cdn(data.clone(), Mode::Plain).await;
+    let (install, tmp) = fresh(&base, size);
+    let (_, on) = recorder();
+    let done = install.download(&engine(&base, "a", size), &on).await;
+    assert_eq!(done.unwrap(), Downloaded::Complete);
+
+    // Un plantage après big.bin : le dernier point d'enregistrement était là, et ce qui
+    // suit est à moitié écrit (ou pas du tout).
+    let (big_start, _) = offsets(&data, "Engine/Content/big.bin");
+    let mut journal = stream::read_journal(&install.dir).unwrap();
+    let total = journal.files;
+    journal.next = total - 3;
+    journal.offset = big_start as u64;
+    stream::write_journal(&install.dir, &journal).unwrap();
+    fs::write(install.dir.join("Engine/Content/big.bin"), b"half").unwrap();
+    fs::remove_file(install.dir.join("Engine/Content/noise.bin")).unwrap();
+    assert!(!install.is_installed());
+    assert_eq!(install.downloaded(), big_start as u64);
+
+    let again = install.download(&engine(&base, "a", size), &on).await;
+    assert_eq!(again.unwrap(), Downloaded::Complete);
+    assert_eq!(
+        seen.lock().unwrap().last().unwrap(),
+        &format!("Some({big_start})")
+    );
+    assert_eq!(install.extract(&on).await.unwrap(), total);
+    check_engine(&install.dir, tmp.path(), 200_000);
+}
+
+/// Le zip avec une entrée de l'index modifiée : `field` est le décalage du champ dans
+/// l'en-tête central, `value` sa nouvelle valeur.
+fn patch_central(data: &[u8], name: &str, field: usize, value: &[u8]) -> Vec<u8> {
+    let start = index_of(data) as usize;
+    let mut out = data.to_vec();
+    let mut at = start;
+    loop {
+        assert_eq!(&out[at..at + 4], b"PK\x01\x02");
+        let name_len = u16::from_le_bytes([out[at + 28], out[at + 29]]) as usize;
+        let extra = u16::from_le_bytes([out[at + 30], out[at + 31]]) as usize;
+        let comment = u16::from_le_bytes([out[at + 32], out[at + 33]]) as usize;
+        if &out[at + 46..at + 46 + name_len] == name.as_bytes() {
+            out[at + field..at + field + value.len()].copy_from_slice(value);
+            return out;
+        }
+        at += 46 + name_len + extra + comment;
+    }
+}
+
+#[test]
+fn the_index_is_checked_before_anything_is_written() {
+    let data = engine_zip(None);
+    let size = data.len() as u64;
+    let start = index_of(&data);
+    let tail = |d: &[u8]| d[start as usize..].to_vec();
+
+    // Lu depuis sa seule fin : toutes les entrées, et la place qu'elles prendront.
+    let index = stream::parse(tail(&data), size, start).unwrap();
+    assert_eq!(index.len(), 9);
+    // Les fichiers (4 Ko au moins chacun) ; ni les liens, ni les dossiers.
+    let blocks = |n: u64| n.div_ceil(4096) * 4096;
+    let expected = blocks(22) + blocks(3) + blocks(84) + blocks(1_000_000);
+    assert_eq!(index.remaining_space(0), expected);
+    assert_eq!(index.remaining_space(9), 0);
+
+    // Une compression que uehub ne sait pas lire (bzip2) : refusé d'avance.
+    let bzip2 = patch_central(&data, "Engine/Content/big.bin", 10, &12u16.to_le_bytes());
+    let err = stream::parse(tail(&bzip2), size, start)
+        .err()
+        .unwrap()
+        .to_string();
+    assert!(
+        err.contains("Engine/Content/big.bin") && err.contains("unsupported"),
+        "{err}"
+    );
+
+    // Deux entrées sur les mêmes octets : refusé aussi.
+    let (editor_start, _) = offsets(&data, EDITOR);
+    let overlap = patch_central(
+        &data,
+        "Engine/Build/Build.version",
+        42,
+        &(editor_start as u32).to_le_bytes(),
+    );
+    let err = stream::parse(tail(&overlap), size, start)
+        .err()
+        .unwrap()
+        .to_string();
+    assert!(err.contains("overlap"), "{err}");
+}
+
+#[test]
+fn the_index_is_read_without_the_data() {
+    // 3 Mo de données et un petit index : le crate zip ne doit lire que l'index. Sinon,
+    // pour le zip d'Epic, il lirait 40 Go de zéros avant le premier fichier.
+    let data = engine_zip_with(None, 3 << 20, false);
+    let size = data.len() as u64;
+    let start = index_of(&data);
+    stream::SPARSE_READ.with(|read| read.set(0));
+    stream::parse(data[start as usize..].to_vec(), size, start).unwrap();
+    let read = stream::SPARSE_READ.with(|read| read.get());
+    assert!(read < 200_000, "{read} octets lus");
+}
+
+#[test]
+fn a_zip64_index_is_found_from_the_end() {
+    // Plus de 65 535 entrées : la fin de l'index passe en ZIP64.
+    let mut out = std::io::Cursor::new(Vec::new());
+    let mut zip = zip::ZipWriter::new(&mut out);
+    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+    for i in 0..70_000 {
+        zip.start_file(format!("f{i}"), options).unwrap();
+    }
+    zip.finish().unwrap();
+    let data = out.into_inner();
+    let size = data.len() as u64;
+    let start = index_of(&data);
+    let from = size - 65_557;
+    let probe = &data[from as usize..];
+    assert!(probe.windows(4).any(|w| w == b"PK\x06\x06"), "un zip ZIP64");
+    let found = stream::index_start(probe, from).unwrap();
+    assert_eq!(found, start);
+    let index = stream::parse(data[start as usize..].to_vec(), size, start).unwrap();
+    assert_eq!(index.len(), 70_000);
+}
+
+#[tokio::test]
+async fn folder_checks_with_a_journal() {
+    let data = engine_zip_with(None, 200_000, false);
+    let size = data.len() as u64;
+    let (base, _) = cdn(data.clone(), Mode::CutOnceAt(data.len() / 2)).await;
+    let (install, _tmp) = fresh(&base, size);
+    let (_, on) = recorder();
+    let first = install.download(&engine(&base, "a", size), &on).await;
+    assert_eq!(first.unwrap(), Downloaded::Interrupted);
+    // Une installation à nous, en cours (son journal est là) : acceptée pour reprendre,
+    // pas encore installée, et le reste à écrire est compté.
+    assert!(EngineInstall::check_dir("5.8.3", &install.dir).is_ok());
+    assert!(!EngineInstall::is_installed_in("5.8.3", &install.dir));
+    assert!(install.check_space().is_ok());
+    // L'abandonner efface le dossier, sans zip à côté.
+    EngineInstall::discard("5.8.3", &install.dir).await.unwrap();
+    assert!(!install.dir.exists());
 }

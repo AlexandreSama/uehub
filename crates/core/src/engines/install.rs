@@ -1,8 +1,12 @@
-//! Installer un moteur précompilé : télécharger le zip (avec reprise), l'extraire,
-//! puis l'enregistrer dans ~/.config/Epic/UnrealEngine/Install.ini.
+//! Installer un moteur précompilé : le télécharger en l'extrayant au fil de l'eau
+//! (stream.rs), puis l'enregistrer dans ~/.config/Epic/UnrealEngine/Install.ini.
+//!
+//! L'ancien chemin reste, pour deux cas : un zip déjà sur le disque (une installation
+//! commencée avec uehub 0.2), et un serveur qui ignore Range. Le zip y est téléchargé
+//! en entier (avec reprise), puis extrait.
 
 use std::fs::{self, File};
-use std::io::{self, BufReader, Read};
+use std::io::{self, BufReader, Read, Seek};
 use std::os::unix::fs::{PermissionsExt, symlink};
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
@@ -18,6 +22,8 @@ use zip::ZipArchive;
 
 use super::{EngineDownload, version_key};
 use crate::{CoreError, Result, t};
+
+mod stream;
 
 /// L'éditeur, relatif au dossier du moteur : sa présence prouve que l'extraction a marché.
 pub(super) const EDITOR: &str = "Engine/Binaries/Linux/UnrealEditor";
@@ -58,7 +64,8 @@ pub struct EngineInstall {
     pub version: String,
     /// Dossier du moteur, ex. ~/UnrealEngine/5.8.3
     pub dir: PathBuf,
-    /// Le zip, à côté du dossier : ~/UnrealEngine/Linux_Unreal_Engine_5.8.3.zip
+    /// Le zip, à côté du dossier, quand il passe par le disque (l'ancien chemin) :
+    /// ~/UnrealEngine/Linux_Unreal_Engine_5.8.3.zip
     zip: PathBuf,
     /// Taille attendue du zip
     size: u64,
@@ -88,7 +95,9 @@ impl EngineInstall {
     /// fichiers, et abandonner l'installation le supprimerait. Un dossier absent ou vide,
     /// ou une installation de ce moteur (en cours ou finie), est accepté.
     pub fn check_dir(version: &str, dir: &Path) -> Result<()> {
-        let ours = Self::zip_path(version, dir)?.exists() || dir.join(EDITOR).is_file();
+        let ours = Self::zip_path(version, dir)?.exists()
+            || dir.join(stream::JOURNAL).is_file()
+            || dir.join(EDITOR).is_file();
         let empty = fs::read_dir(dir)
             .map(|mut entries| entries.next().is_none())
             .unwrap_or(true);
@@ -110,15 +119,26 @@ impl EngineInstall {
         Ok(parent.join(format!("Linux_Unreal_Engine_{version}.zip")))
     }
 
-    /// Un moteur est-il déjà installé là ? (l'éditeur existe et aucun zip n'attend)
+    /// Un moteur est-il déjà installé là ? (l'éditeur existe, et ni zip ni journal
+    /// n'attendent : l'installation est allée au bout)
     pub fn is_installed_in(version: &str, dir: &Path) -> bool {
         let zip_waiting = Self::zip_path(version, dir).is_ok_and(|zip| zip.exists());
-        dir.join(EDITOR).is_file() && !zip_waiting
+        let unfinished = dir.join(stream::JOURNAL).exists();
+        dir.join(EDITOR).is_file() && !zip_waiting && !unfinished
     }
 
-    /// Octets du zip déjà sur le disque : c'est de là que repart le téléchargement.
+    /// Jusqu'où le zip est arrivé : l'octet où la reprise repartira. Avec le zip sur le
+    /// disque, sa taille ; sinon, le début de la prochaine entrée à écrire.
     pub fn downloaded(&self) -> u64 {
-        fs::metadata(&self.zip).map(|m| m.len()).unwrap_or(0)
+        match fs::metadata(&self.zip) {
+            Ok(meta) => meta.len(),
+            Err(_) => stream::read_journal(&self.dir).map_or(0, |j| j.offset),
+        }
+    }
+
+    /// Le zip passe-t-il par le disque (l'ancien chemin) ? Il faudra alors l'extraire.
+    pub fn zip_on_disk(&self) -> bool {
+        self.zip.exists()
     }
 
     /// Le moteur est-il déjà là ?
@@ -126,15 +146,61 @@ impl EngineInstall {
         Self::is_installed_in(&self.version, &self.dir)
     }
 
-    /// Vérifie qu'il reste la place pour la fin du zip et pour l'extraction (estimée).
+    /// Vérifie qu'il reste la place pour ce qui n'est pas encore écrit (estimé d'après la
+    /// taille du zip ; le compte exact se fait dès que l'index est là). Avec le zip sur le
+    /// disque, il faut aussi la place de sa fin.
     pub fn check_space(&self) -> Result<()> {
-        let rest = self.size.saturating_sub(self.downloaded());
-        check_space(&self.dir, rest + extracted_size(self.size))
+        if self.zip.exists() {
+            let rest = self.size.saturating_sub(self.downloaded());
+            return check_space(&self.dir, rest + extracted_size(self.size));
+        }
+        let written = stream::read_journal(&self.dir).map_or(0, |j| j.written);
+        check_space(&self.dir, extracted_size(self.size).saturating_sub(written))
     }
 
-    /// Télécharge le zip à l'adresse de `download` (fraîche, même version), en reprenant
-    /// là où le fichier s'est arrêté.
+    /// Télécharge le moteur à l'adresse de `download` (fraîche, même version) et l'extrait
+    /// au passage, en reprenant à l'entrée où il s'était arrêté. `Complete` : tous les
+    /// fichiers sont écrits, il ne reste qu'à finir avec `extract`.
     pub async fn download(
+        &self,
+        download: &EngineDownload,
+        on_progress: &(dyn Fn(InstallProgress) + Send + Sync),
+    ) -> Result<Downloaded> {
+        if self.zip.exists() {
+            return self.download_zip(download, on_progress).await;
+        }
+        let (index, journal) = match stream::resume(&self.dir, self.size) {
+            Some(found) => found,
+            None => match stream::fetch_index(&self.http, &download.url, self.size).await? {
+                stream::Fetched::Tail(tail, start) => {
+                    stream::begin(&self.dir, self.size, tail, start)?
+                }
+                stream::Fetched::Expired => return Ok(Downloaded::Expired),
+                stream::Fetched::Interrupted => return Ok(Downloaded::Interrupted),
+                // Sans Range, pas d'index à part : le zip passe par le disque, en entier.
+                stream::Fetched::NoRanges => {
+                    log::info!("engine zip: the server ignores ranges, downloading it whole");
+                    check_space(&self.dir, self.size + extracted_size(self.size))?;
+                    return self.download_zip(download, on_progress).await;
+                }
+            },
+        };
+        // Le compte exact : chaque fichier qui reste, d'après l'index.
+        check_space(&self.dir, index.remaining_space(journal.next))?;
+        stream::stream(
+            &self.http,
+            &download.url,
+            &self.dir,
+            index,
+            journal,
+            on_progress,
+        )
+        .await
+    }
+
+    /// L'ancien chemin : le zip entier sur le disque, en reprenant là où le fichier s'est
+    /// arrêté.
+    async fn download_zip(
         &self,
         download: &EngineDownload,
         on_progress: &(dyn Fn(InstallProgress) + Send + Sync),
@@ -225,13 +291,22 @@ impl EngineInstall {
         })
     }
 
-    /// Extrait le zip dans le dossier du moteur, vérifie l'éditeur, puis supprime le zip.
-    /// Les fichiers déjà extraits avec la bonne taille sont gardés : une reprise ne refait
-    /// pas tout. Renvoie le nombre d'entrées du zip.
+    /// Finit l'installation : vérifie l'éditeur, marque le moteur, et range ce qui servait
+    /// à l'installer. Avec le zip sur le disque, l'extrait d'abord ; les fichiers déjà
+    /// extraits avec la bonne taille sont gardés. Renvoie le nombre d'entrées du zip.
     pub async fn extract(
         &self,
         on_progress: &(dyn Fn(InstallProgress) + Send + Sync),
     ) -> Result<usize> {
+        if !self.zip.exists() {
+            let journal = stream::read_journal(&self.dir)
+                .filter(|j| j.next == j.files)
+                .ok_or_else(|| CoreError::Download(t!("errors.extraction_stopped")))?;
+            self.finish().await?;
+            tokio::fs::remove_file(self.dir.join(stream::JOURNAL)).await?;
+            tokio::fs::remove_file(self.dir.join(stream::INDEX)).await?;
+            return Ok(journal.files);
+        }
         let stop = Arc::new(AtomicBool::new(false));
         // L'extraction tourne sur un thread à part. Si cette tâche est abandonnée (pause),
         // ce garde est détruit et l'extraction s'arrête au fichier suivant.
@@ -250,7 +325,14 @@ impl EngineInstall {
         let files = task
             .await
             .map_err(|e| CoreError::Download(t!("errors.extraction", detail = e)))??;
+        self.finish().await?;
+        tokio::fs::remove_file(&self.zip).await?;
+        Ok(files)
+    }
 
+    /// L'éditeur doit être là : sa présence prouve que l'extraction a marché. Puis la
+    /// marque de uehub.
+    async fn finish(&self) -> Result<()> {
         if !self.dir.join(EDITOR).is_file() {
             return Err(CoreError::Download(t!(
                 "errors.zip_without_editor",
@@ -258,8 +340,7 @@ impl EngineInstall {
             )));
         }
         tokio::fs::write(self.dir.join(MARKER), &self.version).await?;
-        tokio::fs::remove_file(&self.zip).await?;
-        Ok(files)
+        Ok(())
     }
 
     /// Enregistre le moteur dans Install.ini et renvoie son identifiant.
@@ -267,18 +348,22 @@ impl EngineInstall {
         register_engine(&install_ini()?, &self.dir)
     }
 
-    /// Abandon d'une installation pas finie : supprime le zip et ce qui a déjà été extrait.
-    /// Sans zip, l'installation est finie (ou n'a jamais commencé) : on ne touche à rien.
+    /// Abandon d'une installation pas finie : supprime ce qui a déjà été extrait, et le zip
+    /// s'il est sur le disque. Sans zip ni journal, l'installation est finie (ou n'a jamais
+    /// commencé) : on ne touche à rien.
     pub async fn discard(version: &str, dir: &Path) -> Result<()> {
         let zip = Self::zip_path(version, dir)?;
-        if !zip.exists() {
+        if !zip.exists() && !dir.join(stream::JOURNAL).exists() {
             return Ok(());
         }
-        // Le dossier d'abord : si ça échoue, le zip reste et on pourra recommencer.
+        // Le dossier d'abord : si ça échoue, le zip ou le journal reste et on pourra
+        // recommencer.
         if dir.exists() {
             tokio::fs::remove_dir_all(dir).await?;
         }
-        tokio::fs::remove_file(&zip).await?;
+        if zip.exists() {
+            tokio::fs::remove_file(&zip).await?;
+        }
         Ok(())
     }
 }
@@ -349,7 +434,7 @@ fn extract_zip(
 ) -> Result<usize> {
     let mut archive = ZipArchive::new(BufReader::new(File::open(zip)?)).map_err(zip_error)?;
     let total = archive.len();
-    let root = common_root(&mut archive)?;
+    let root = common_root(&archive)?;
 
     // La place qu'il faut vraiment : la taille des fichiers pas encore extraits.
     let mut needed = 0;
@@ -432,10 +517,10 @@ fn extract_entry(
 /// Si tout le zip est rangé dans un seul dossier (autre qu'Engine), on le retire :
 /// le moteur doit se retrouver directement dans `dir`. Les chemins dangereux, qui seront
 /// ignorés, ne comptent pas.
-fn common_root(archive: &mut ZipArchive<BufReader<File>>) -> Result<Option<PathBuf>> {
+fn common_root<R: Read + Seek>(archive: &ZipArchive<R>) -> Result<Option<PathBuf>> {
     let mut root: Option<PathBuf> = None;
     for i in 0..archive.len() {
-        let entry = archive.by_index_raw(i).map_err(zip_error)?;
+        let entry = archive.by_index_data(i).map_err(zip_error)?;
         let Some(name) = entry.enclosed_name() else {
             continue;
         };

@@ -26,6 +26,11 @@ sha1.workspace = true
 keyring-core.workspace = true
 zbus-secret-service-keyring-store.workspace = true
 zip.workspace = true
+flate2.workspace = true
+deflate64.workspace = true
+crc32fast.workspace = true
+bytes.workspace = true
+rustix.workspace = true
 fs4.workspace = true
 uuid.workspace = true
 # Le masquage des secrets dans le journal
@@ -34,7 +39,5 @@ regex.workspace = true
 [dev-dependencies]
 # Des dossiers temporaires, effacés à la fin de chaque test
 tempfile.workspace = true
-# Les morceaux compressés du faux CDN, dans tests/download.rs
-flate2.workspace = true
 # Le faux serveur HTTP des tests écoute sur 127.0.0.1
 tokio = { workspace = true, features = ["net"] }
