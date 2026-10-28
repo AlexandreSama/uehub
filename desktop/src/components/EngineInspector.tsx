@@ -225,13 +225,13 @@ function Speed({ rate, speed }: { rate: Rate; speed: number }) {
   );
 }
 
-// Une version à installer : la place qu'elle prendra, puis où elle ira.
+// Une version à installer : la place qu'elle prendra, puis où elle ira. Le zip ne passe
+// pas par le disque : il ne faut que la place du moteur extrait.
 function InstallBlock(props: Props & { engine: AvailableEngine }) {
   const { engine, folder, free, onInstall } = props;
-  const needed = engine.size + engine.extracted;
-  // Les deux parts de la barre, en pourcentage de la place libre.
-  const zip = free ? Math.min(engine.size / free, 1) : 0;
-  const extracted = free ? Math.min(engine.extracted / free, 1 - zip) : 0;
+  const needed = engine.extracted;
+  // La part du moteur dans la barre, en pourcentage de la place libre.
+  const extracted = free ? Math.min(engine.extracted / free, 1) : 0;
 
   return (
     <>
@@ -246,7 +246,6 @@ function InstallBlock(props: Props & { engine: AvailableEngine }) {
               free: formatBytes(free),
             })}
           >
-            <span className="disk-zip" style={{ width: `${zip * 100}%` }} />
             <span
               className="disk-engine"
               style={{ width: `${extracted * 100}%` }}
@@ -254,13 +253,6 @@ function InstallBlock(props: Props & { engine: AvailableEngine }) {
           </div>
         )}
         <dl className="disk-legend">
-          <div>
-            <dt>
-              <span className="swatch disk-zip" />
-              {t("inspector.zip")}
-            </dt>
-            <dd>{formatBytes(engine.size)}</dd>
-          </div>
           <div>
             <dt>
               <span className="swatch disk-engine" />
@@ -280,7 +272,9 @@ function InstallBlock(props: Props & { engine: AvailableEngine }) {
             </div>
           )}
         </dl>
-        <p className="muted small">{t("inspector.zip_deleted")}</p>
+        <p className="muted small">
+          {t("inspector.streamed", { size: formatBytes(engine.size) })}
+        </p>
         {free !== null && free < needed && (
           <p className="error">
             {t("inspector.no_space", {

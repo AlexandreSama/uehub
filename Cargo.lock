@@ -5586,6 +5586,9 @@ dependencies = [
 name = "uehub-core"
 version = "0.2.0"
 dependencies = [
+ "bytes",
+ "crc32fast",
+ "deflate64",
  "directories",
  "egs-api",
  "flate2",
@@ -5595,6 +5598,7 @@ dependencies = [
  "log",
  "regex",
  "reqwest",
+ "rustix",
  "serde",
  "serde_json",
  "sha1",

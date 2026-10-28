@@ -32,9 +32,10 @@
   version plus proche de ton moteur. Retirer un asset efface les fichiers qu'il a
   ajoutés, et seulement ceux-là.
 - **Unreal Engine, installé pour toi.** Les versions précompilées pour Linux qu'Epic
-  publie : tu en choisis une, tu vois la place qu'elle prendra, et uehub la télécharge,
-  l'extrait et l'enregistre pour que tes projets s'ouvrent avec. Il te prévient quand un
-  nouveau correctif de ta branche sort.
+  publie : tu en choisis une, tu vois la place qu'elle prendra, et uehub l'extrait
+  pendant qu'elle se télécharge, puis l'enregistre pour que tes projets s'ouvrent avec.
+  Une coupure reprend au fichier en cours. Il te prévient quand un nouveau correctif de
+  ta branche sort.
 - **Fait pour rester ouvert.** Une notification quand un téléchargement finit pendant que
   tu es ailleurs, une recherche de mise à jour de uehub toutes les quelques heures, et un
   journal qu'on peut joindre sans risque à un rapport de bug.
@@ -74,8 +75,9 @@ signée, et uehub refuse celle dont la signature ne correspond pas.
   paquets l'installent).
 - Un trousseau compatible Secret Service (GNOME Keyring, KWallet) pour garder ta session.
   Sans trousseau, uehub la range dans un fichier que toi seul peux lire.
-- De la place pour les moteurs : Unreal Engine 5.8 prend environ 70 Go une fois extrait,
-  plus son zip de 40 Go pendant l'installation. uehub vérifie avant de commencer.
+- De la place pour les moteurs : Unreal Engine 5.8 prend environ 70 Go une fois extrait.
+  Son zip de 40 Go ne passe jamais par le disque : uehub extrait chaque fichier dès qu'il
+  arrive. uehub vérifie avant de commencer.
 
 ## Premiers pas
 

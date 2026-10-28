@@ -492,7 +492,7 @@ fn eula_missing() -> Error {
     Error::Msg(t!("errors.eula_first"))
 }
 
-/// Télécharge le zip, l'extrait et enregistre le moteur dans Install.ini.
+/// Télécharge le moteur en l'extrayant au passage, puis l'enregistre dans Install.ini.
 async fn install_engine(
     state: &AppState,
     queue: &Queue,
@@ -514,11 +514,11 @@ async fn install_engine(
     } else {
         install.check_space()?;
         log::info!(
-            "UE {version}: downloading the zip into {}",
+            "UE {version}: downloading and extracting into {}",
             install.dir.display()
         );
-        download_zip(state, &install, engine.clone(), &send).await?;
-        log::info!("UE {version}: zip complete, extracting");
+        download_engine(state, &install, engine.clone(), &send).await?;
+        log::info!("UE {version}: download complete, finishing");
         install.extract(&send).await?
     };
     let id = install.register()?;
@@ -531,9 +531,9 @@ async fn install_engine(
     })
 }
 
-/// Télécharge le zip jusqu'au bout : une coupure reprend là où le fichier s'est arrêté,
-/// une adresse expirée (elle ne vaut qu'une heure) est remplacée par une fraîche.
-async fn download_zip(
+/// Télécharge (et extrait) le moteur jusqu'au bout : une coupure reprend au fichier en
+/// cours, une adresse expirée (elle ne vaut qu'une heure) est remplacée par une fraîche.
+async fn download_engine(
     state: &AppState,
     install: &EngineInstall,
     mut engine: EngineDownload,
